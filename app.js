@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", () => {
   const API = "/api";
   let token = localStorage.getItem("sip_token") || "";
@@ -126,6 +125,68 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
+  // СЛЕДУЮЩИЙ СТАТУС
+  function nextStatus(status) {
+    const statuses = {
+      confirmed: {
+        value: "purchased",
+        label: "Выкуплен в Китае"
+      },
+      purchased: {
+        value: "in_transit",
+        label: "В пути"
+      },
+      in_transit: {
+        value: "arrived",
+        label: "Прибыл на склад"
+      },
+      arrived: {
+        value: "shipped",
+        label: "Отправлен покупателю"
+      },
+      shipped: {
+        value: "delivered",
+        label: "Доставлен"
+      }
+    };
+
+    return statuses[status] || null;
+  }
+
+  function supplierStatusControl(order) {
+    const next = nextStatus(order.status);
+
+    if (!next) {
+      if (order.status === "delivered") {
+        return `<p class="confirmation-success">Заказ полностью доставлен.</p>`;
+      }
+
+      if (order.status === "new") {
+        return `<p>Ожидается проверка веса и расчёт стоимости.</p>`;
+      }
+
+      if (order.status === "calculated") {
+        return `<p>Ожидается подтверждение заказа покупателем.</p>`;
+      }
+
+      return "";
+    }
+
+    return `
+      <div class="supplier-status-control">
+        <p>Следующий этап: <strong>${escapeHtml(next.label)}</strong></p>
+        <button
+          class="button button-primary update-order-status"
+          type="button"
+          data-order-id="${escapeHtml(order.id)}"
+          data-next-status="${escapeHtml(next.value)}">
+          Перевести в статус «${escapeHtml(next.label)}»
+        </button>
+        <p class="status-update-message" aria-live="polite"></p>
+      </div>
+    `;
+  }
+
   // КАБИНЕТ ПОКУПАТЕЛЯ
   async function loadCustomerOrders() {
     const account = document.getElementById("page-account");
@@ -192,6 +253,26 @@ document.addEventListener("DOMContentLoaded", () => {
                   </p>
                 ` : ""}
 
+                ${order.status === "purchased" ? `
+                  <p>Товар выкуплен в Китае.</p>
+                ` : ""}
+
+                ${order.status === "in_transit" ? `
+                  <p>Товар находится в пути.</p>
+                ` : ""}
+
+                ${order.status === "arrived" ? `
+                  <p>Товар прибыл на склад.</p>
+                ` : ""}
+
+                ${order.status === "shipped" ? `
+                  <p>Товар отправлен покупателю.</p>
+                ` : ""}
+
+                ${order.status === "delivered" ? `
+                  <p class="confirmation-success">Заказ доставлен.</p>
+                ` : ""}
+
                 <p>
                   <a href="${escapeHtml(order.product_url)}"
                      target="_blank" rel="noopener noreferrer">
@@ -250,6 +331,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
       button.disabled = false;
       button.textContent = "Подтвердить заказ";
+    }
+  });
+
+  // ИЗМЕНЕНИЕ СТАТУСА ПОСТАВЩИКОМ
+  document.addEventListener("click", async event => {
+    const button = event.target.closest(".update-order-status");
+    if (!button) return;
+
+    event.preventDefault();
+
+    const orderId = button.dataset.orderId;
+    const newStatus = button.dataset.nextStatus;
+    const card = button.closest(".step-card");
+    const result = card?.querySelector(".status-update-message");
+    const next = statusName(newStatus);
+
+    if (!confirm(
+      `Изменить статус заявки №${orderId} на «${next}»?`
+    )) {
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Сохранение...";
+
+    try {
+      await api(`/admin/orders/${orderId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      await loadAdminPanel();
+    } catch (error) {
+      if (result) {
+        result.textContent = error.message;
+        result.style.color = "#e05252";
+      }
+
+      button.disabled = false;
+      button.textContent = `Перевести в статус «${next}»`;
     }
   });
 
@@ -361,6 +482,8 @@ document.addEventListener("DOMContentLoaded", () => {
                       </button>
                       <p class="admin-order-message"></p>
                     </form>
+
+                    ${supplierStatusControl(order)}
                   </article>
                 `).join("")
                 : "<p>Пока заявок нет.</p>"
@@ -393,7 +516,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // НАСТРОЙКИ ТАРИФОВ
+  // СОХРАНЕНИЕ ТАРИФОВ
   document.addEventListener("submit", async event => {
     const settingsForm = event.target.closest("#admin-settings-form");
     if (!settingsForm) return;
@@ -562,7 +685,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // СОЗДАНИЕ ЗАЯВКИ ПОКУПАТЕЛЕМ
+  // СОЗДАНИЕ ЗАЯВКИ
   const requestForm = document.getElementById("request-form");
 
   if (requestForm) {
@@ -596,7 +719,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ПРОВЕРКА СЕССИИ И РОЛИ
+  // ПРОВЕРКА СЕССИИ
   async function checkSession() {
     if (!token) {
       updateAccountButtons();
