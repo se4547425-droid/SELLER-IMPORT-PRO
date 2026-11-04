@@ -1,23 +1,101 @@
-const pageTitles={home:"Главная",request:"Рассчитать заказ",account:"Мои заявки",login:"Вход в аккаунт",register:"Регистрация"};
-function showPage(name){
-  document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${name}`));
-  document.querySelectorAll(".nav-link[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===name));
-  const title=document.getElementById("page-title"); if(title) title.textContent=pageTitles[name]||"SELLER IMPORT PRO";
-  window.scrollTo({top:0,behavior:"smooth"});
-}
-document.addEventListener("click",e=>{
-  const button=e.target.closest("[data-page]");
-  if(button){e.preventDefault();showPage(button.dataset.page);}
-});
-document.getElementById("request-form")?.addEventListener("submit",e=>{
-  e.preventDefault();
-  document.getElementById("request-message").textContent="Интерфейс заявки готов. Отправка и сохранение заявок будут подключены после настройки серверной базы данных.";
-});
-document.getElementById("login-form")?.addEventListener("submit",e=>{
-  e.preventDefault();
-  document.getElementById("login-message").textContent="Авторизация ещё не подключена. Это будет сделано на следующем этапе.";
-});
-document.getElementById("register-form")?.addEventListener("submit",e=>{
-  e.preventDefault();
-  document.getElementById("register-message").textContent="Регистрация ещё не подключена. Сначала настроим безопасное хранение аккаунтов.";
+
+document.addEventListener("DOMContentLoaded", () => {
+  const pageTitles = {
+    home: "Главная",
+    request: "Рассчитать заказ",
+    account: "Мои заявки",
+    login: "Вход в аккаунт",
+    register: "Регистрация"
+  };
+
+  function showPage(name) {
+    const target = document.getElementById(`page-${name}`);
+
+    if (!target) {
+      console.error("Страница не найдена:", name);
+      return;
+    }
+
+    document.querySelectorAll(".page").forEach(page => {
+      page.classList.toggle("active", page === target);
+    });
+
+    document.querySelectorAll("[data-page]").forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.page === name
+      );
+    });
+
+    const title = document.getElementById("page-title");
+
+    if (title) {
+      title.textContent = pageTitles[name] || "SELLER IMPORT PRO";
+    }
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  }
+
+  // Переходы между страницами
+  document.addEventListener("click", event => {
+    const button = event.target.closest("[data-page]");
+
+    if (!button) return;
+
+    event.preventDefault();
+    showPage(button.dataset.page);
+  });
+
+  // Форма заявки
+  const requestForm = document.getElementById("request-form");
+
+  if (requestForm) {
+    requestForm.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const message = document.getElementById("request-message");
+
+      if (message) {
+        message.textContent =
+          "Форма готова. Сохранение заявок будет подключено после настройки базы данных.";
+      }
+    });
+  }
+
+  // Вход
+  const loginForm = document.getElementById("login-form");
+
+  if (loginForm) {
+    loginForm.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const message = document.getElementById("login-message");
+
+      if (message) {
+        message.textContent =
+          "Авторизация пока не подключена.";
+      }
+    });
+  }
+
+  // Регистрация
+  const registerForm = document.getElementById("register-form");
+
+  if (registerForm) {
+    registerForm.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const message = document.getElementById("register-message");
+
+      if (message) {
+        message.textContent =
+          "Регистрация пока не подключена.";
+      }
+    });
+  }
+
+  console.log("SELLER IMPORT PRO: JavaScript загружен успешно");
 });
