@@ -1,0 +1,18 @@
+
+{
+  "name": "seller-import-pro",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-04",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "seller-import-db",
+      "database_id": "a4e0e557-8297-4fc1-9321-f9b97ac19eb7"
+    }
+  ]
+}
