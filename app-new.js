@@ -750,8 +750,6 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // КАБИНЕТ ПОСТАВЩИКА
 
-    // КАБИНЕТ ПОСТАВЩИКА
-
   async function loadAdminPanel() {
     const account = document.getElementById("page-account");
     if (!account) return;
