@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", () => {
   const API = "/api";
   let token = localStorage.getItem("sip_token") || "";
@@ -56,6 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const title = document.getElementById("page-title");
+
     if (title) {
       title.textContent = currentUser?.role === "admin" && name === "account"
         ? "Кабинет поставщика"
@@ -105,7 +107,79 @@ document.addEventListener("DOMContentLoaded", () => {
       delivered: "Доставлен"
     };
 
-    return names[status] || status;
+    return names[status] || status || "Неизвестно";
+  }
+
+  // ОТОБРАЖЕНИЕ ИСТОРИИ СТАТУСОВ
+  function renderHistory(history) {
+    if (!history || !history.length) {
+      return `<p class="history-empty">История изменений пока пуста.</p>`;
+    }
+
+    return `
+      <div class="status-history-list">
+        ${history.map(item => {
+          const date = item.created_at
+            ? new Date(
+                item.created_at.includes("Z") || item.created_at.includes("+")
+                  ? item.created_at
+                  : item.created_at.replace(" ", "T") + "Z"
+              )
+            : null;
+
+          const dateText = date && !Number.isNaN(date.getTime())
+            ? date.toLocaleString("ru-RU")
+            : item.created_at || "Дата не указана";
+
+          return `
+            <div class="status-history-item">
+              <p>
+                <strong>${escapeHtml(statusName(item.new_status))}</strong>
+              </p>
+              <p>
+                Предыдущий статус:
+                ${escapeHtml(
+                  item.old_status
+                    ? statusName(item.old_status)
+                    : "Создание заявки"
+                )}
+              </p>
+              <p>Дата: ${escapeHtml(dateText)}</p>
+              <p>Изменил: ${escapeHtml(item.changed_by || "Не указано")}</p>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  // ЗАГРУЗКА ИСТОРИИ ДЛЯ КАРТОЧЕК
+  async function loadOrderHistories(container) {
+    if (!container) return;
+
+    const placeholders = Array.from(
+      container.querySelectorAll(".order-history")
+    );
+
+    await Promise.all(placeholders.map(async placeholder => {
+      const orderId = placeholder.dataset.orderId;
+
+      try {
+        const data = await api(`/orders/${orderId}/history`);
+
+        if (!placeholder.isConnected) return;
+
+        placeholder.innerHTML = renderHistory(data.history || []);
+      } catch (error) {
+        if (!placeholder.isConnected) return;
+
+        placeholder.innerHTML = `
+          <p class="history-error">
+            Не удалось загрузить историю: ${escapeHtml(error.message)}
+          </p>
+        `;
+      }
+    }));
   }
 
   function calculationDetails(order) {
@@ -125,7 +199,6 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
-  // СЛЕДУЮЩИЙ СТАТУС
   function nextStatus(status) {
     const statuses = {
       confirmed: {
@@ -273,6 +346,13 @@ document.addEventListener("DOMContentLoaded", () => {
                   <p class="confirmation-success">Заказ доставлен.</p>
                 ` : ""}
 
+                <div class="order-history-block">
+                  <h4>История заказа</h4>
+                  <div class="order-history" data-order-id="${escapeHtml(order.id)}">
+                    Загрузка истории...
+                  </div>
+                </div>
+
                 <p>
                   <a href="${escapeHtml(order.product_url)}"
                      target="_blank" rel="noopener noreferrer">
@@ -283,6 +363,9 @@ document.addEventListener("DOMContentLoaded", () => {
             `).join("")}
           </div>
         </div>`;
+
+      await loadOrderHistories(account);
+
     } catch (error) {
       account.innerHTML = `
         <div class="content-card">
@@ -484,6 +567,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     </form>
 
                     ${supplierStatusControl(order)}
+
+                    <div class="order-history-block">
+                      <h4>История заказа</h4>
+                      <div class="order-history" data-order-id="${escapeHtml(order.id)}">
+                        Загрузка истории...
+                      </div>
+                    </div>
                   </article>
                 `).join("")
                 : "<p>Пока заявок нет.</p>"
@@ -491,6 +581,9 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
       `;
+
+      await loadOrderHistories(account);
+
     } catch (error) {
       account.innerHTML = `
         <div class="content-card">
