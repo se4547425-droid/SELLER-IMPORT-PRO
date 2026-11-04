@@ -750,6 +750,8 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // КАБИНЕТ ПОСТАВЩИКА
 
+    // КАБИНЕТ ПОСТАВЩИКА
+
   async function loadAdminPanel() {
     const account = document.getElementById("page-account");
     if (!account) return;
@@ -788,64 +790,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
           <form id="admin-settings-form" class="form">
             <label>Курс юаня (CNY → RUB)</label>
-
-            <input
-              name="exchange_rate"
-              type="number"
-              min="0.01"
-              step="0.01"
-              required
-              value="${escapeHtml(settings.exchange_rate)}">
+            <input name="exchange_rate" type="number" min="0.01" step="0.01" required value="${escapeHtml(settings.exchange_rate)}">
 
             <label>Доставка за 1 кг (RUB)</label>
-
-            <input
-              name="delivery_price_per_kg"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              value="${escapeHtml(settings.delivery_price_per_kg)}">
+            <input name="delivery_price_per_kg" type="number" min="0" step="0.01" required value="${escapeHtml(settings.delivery_price_per_kg)}">
 
             <label>Страховка (%)</label>
-
-            <input
-              name="insurance_percent"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              value="${escapeHtml(settings.insurance_percent)}">
+            <input name="insurance_percent" type="number" min="0" step="0.01" required value="${escapeHtml(settings.insurance_percent)}">
 
             <label>Комиссия (%)</label>
-
-            <input
-              name="commission_percent"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              value="${escapeHtml(settings.commission_percent)}">
+            <input name="commission_percent" type="number" min="0" step="0.01" required value="${escapeHtml(settings.commission_percent)}">
 
             <label>Дополнительные расходы (RUB)</label>
-
-            <input
-              name="extra_costs"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              value="${escapeHtml(settings.extra_costs)}">
+            <input name="extra_costs" type="number" min="0" step="0.01" required value="${escapeHtml(settings.extra_costs)}">
 
             <label>Наценка (%)</label>
-
-            <input
-              name="markup_percent"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              value="${escapeHtml(settings.markup_percent)}">
+            <input name="markup_percent" type="number" min="0" step="0.01" required value="${escapeHtml(settings.markup_percent)}">
 
             <button class="button button-primary" type="submit">
               Сохранить тарифы
@@ -858,11 +818,49 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="content-card">
           <h2>Все заявки покупателей</h2>
 
-          <div class="orders-list">
+          <div class="orders-filter-panel">
+
+            <input
+              type="search"
+              id="orders-search"
+              placeholder="Поиск по номеру, email или ссылке..."
+              autocomplete="off">
+
+            <select id="orders-status">
+              <option value="all">Все статусы</option>
+              <option value="new">Новая заявка</option>
+              <option value="calculated">Ожидает подтверждения</option>
+              <option value="confirmed">Подтверждён</option>
+              <option value="purchased">Выкуплен в Китае</option>
+              <option value="in_transit">В пути</option>
+              <option value="arrived">Прибыл на склад</option>
+              <option value="shipped">Отправлен покупателю</option>
+              <option value="delivered">Доставлен</option>
+            </select>
+
+            <select id="orders-sort">
+              <option value="newest">Сначала новые</option>
+              <option value="oldest">Сначала старые</option>
+              <option value="price-high">Сначала дорогие</option>
+              <option value="price-low">Сначала дешёвые</option>
+            </select>
+
+            <span id="orders-filter-count"></span>
+          </div>
+
+          <div class="orders-list" id="admin-orders-list">
             ${
               orders.length
                 ? orders.map(order => `
-                  <article class="step-card">
+                  <article
+                    class="step-card admin-order-card"
+                    data-id="${escapeHtml(order.id)}"
+                    data-status="${escapeHtml(order.status)}"
+                    data-total="${Number(order.total_price_rub || 0)}"
+                    data-search="${escapeHtml(
+                      `${order.id} ${order.email || ""} ${order.product_url || ""}`.toLowerCase()
+                    )}">
+
                     <h3>Заявка №${escapeHtml(order.id)}</h3>
 
                     <p>
@@ -942,6 +940,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         Загрузка истории...
                       </div>
                     </div>
+
                   </article>
                 `).join("")
                 : "<p>Пока заявок нет.</p>"
@@ -949,6 +948,9 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
       `;
+
+      // Применяем фильтры после отображения карточек
+      filterAdminOrders();
 
       await Promise.all([
         loadOrderHistories(account),
