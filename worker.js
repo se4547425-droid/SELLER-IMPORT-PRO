@@ -1,3 +1,4 @@
+
 const json = (data, status = 200) =>
   Response.json(data, {
     status,
@@ -129,6 +130,26 @@ function validNonNegative(value) {
   return Number.isFinite(value) && value >= 0;
 }
 
+// ЗАПИСЬ ИСТОРИИ СТАТУСОВ
+async function saveStatusHistory(
+  env,
+  orderId,
+  oldStatus,
+  newStatus,
+  changedBy
+) {
+  await env.DB.prepare(`
+    INSERT INTO order_status_history
+      (order_id, old_status, new_status, changed_by)
+    VALUES (?, ?, ?, ?)
+  `).bind(
+    orderId,
+    oldStatus || null,
+    newStatus,
+    changedBy || "system"
+  ).run();
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -147,6 +168,7 @@ export default {
         });
       }
 
+      // РЕГИСТРАЦИЯ
       if (path === "/api/register" && method === "POST") {
         const body = await request.json();
         const email = String(body.email || "").trim().toLowerCase();
@@ -189,6 +211,7 @@ export default {
         return json({ user, token }, 201);
       }
 
+      // ВХОД
       if (path === "/api/login" && method === "POST") {
         const body = await request.json();
         const email = String(body.email || "").trim().toLowerCase();
@@ -218,6 +241,7 @@ export default {
         });
       }
 
+      // ТЕКУЩИЙ ПОЛЬЗОВАТЕЛЬ
       if (path === "/api/me" && method === "GET") {
         const user = await getUser(request, env);
 
@@ -257,9 +281,19 @@ export default {
           VALUES (?, ?, ?)
         `).bind(user.id, productUrl, price).run();
 
+        const orderId = result.meta.last_row_id;
+
+        await saveStatusHistory(
+          env,
+          orderId,
+          null,
+          "new",
+          user.email
+        );
+
         return json({
           message: "Заявка создана",
-          order_id: result.meta.last_row_id,
+          order_id: orderId,
           status: "new"
         }, 201);
       }
@@ -302,11 +336,59 @@ export default {
           }, 409);
         }
 
+        await saveStatusHistory(
+          env,
+          orderId,
+          "calculated",
+          "confirmed",
+          user.email
+        );
+
         return json({
           message: "Заказ подтверждён",
           order_id: orderId,
           status: "confirmed"
         });
+      }
+
+      // ИСТОРИЯ СТАТУСОВ ЗАКАЗА
+      const historyMatch = path.match(
+        /^\/api\/orders\/(\d+)\/history$/
+      );
+
+      if (historyMatch && method === "GET") {
+        const user = await getUser(request, env);
+
+        if (!user) return json({ error: "Требуется вход" }, 401);
+
+        const orderId = Number(historyMatch[1]);
+
+        let order;
+
+        if (isAdmin(user)) {
+          order = await env.DB.prepare(`
+            SELECT id FROM orders WHERE id = ?
+          `).bind(orderId).first();
+        } else {
+          order = await env.DB.prepare(`
+            SELECT id FROM orders
+            WHERE id = ? AND user_id = ?
+          `).bind(orderId, user.id).first();
+        }
+
+        if (!order) {
+          return json({ error: "Заявка не найдена" }, 404);
+        }
+
+        const history = await env.DB.prepare(`
+          SELECT id, order_id, old_status, new_status,
+                 changed_by, created_at
+          FROM order_status_history
+          WHERE order_id = ?
+          ORDER BY id ASC
+        `).bind(orderId).all();
+
+        return json({ history: history.results });
       }
 
       // СПИСОК ЗАЯВОК ПОКУПАТЕЛЯ
@@ -351,7 +433,7 @@ export default {
         return json({ orders: orders.results });
       }
 
-      // НОВОЕ: ИЗМЕНЕНИЕ СТАТУСА ПОСТАВЩИКОМ
+      // ИЗМЕНЕНИЕ СТАТУСА ПОСТАВЩИКОМ
       const statusMatch = path.match(
         /^\/api\/admin\/orders\/(\d+)\/status$/
       );
@@ -401,6 +483,14 @@ export default {
             error: "Статус уже изменён. Обновите список заявок."
           }, 409);
         }
+
+        await saveStatusHistory(
+          env,
+          orderId,
+          order.status,
+          newStatus,
+          auth.user.email
+        );
 
         return json({
           message: "Статус заказа обновлён",
@@ -482,7 +572,7 @@ export default {
         }
 
         const order = await env.DB.prepare(`
-          SELECT id, product_price_cny
+          SELECT id, product_price_cny, status
           FROM orders
           WHERE id = ?
         `).bind(orderId).first();
@@ -519,7 +609,7 @@ export default {
 
         const total = Math.round((subtotal + markupRub) * 100) / 100;
 
-        await env.DB.prepare(`
+        const result = await env.DB.prepare(`
           UPDATE orders
           SET weight_kg = ?,
               delivery_price_per_kg = ?,
@@ -554,6 +644,16 @@ export default {
           total,
           orderId
         ).run();
+
+        if (result.meta.changes && order.status !== "calculated") {
+          await saveStatusHistory(
+            env,
+            orderId,
+            order.status,
+            "calculated",
+            auth.user.email
+          );
+        }
 
         return json({
           message: "Расчёт выполнен",
