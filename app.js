@@ -2,13 +2,14 @@
 document.addEventListener("DOMContentLoaded", () => {
   const API = "/api";
   let token = localStorage.getItem("sip_token") || "";
+  let currentUser = null;
 
   const txt = {
-    home: "\u0413\u043b\u0430\u0432\u043d\u0430\u044f",
-    request: "\u0420\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u0442\u044c \u0437\u0430\u043a\u0430\u0437",
-    account: "\u041c\u043e\u0438 \u0437\u0430\u044f\u0432\u043a\u0438",
-    login: "\u0412\u0445\u043e\u0434 \u0432 \u0430\u043a\u043a\u0430\u0443\u043d\u0442",
-    register: "\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044f"
+    home: "Главная",
+    request: "Рассчитать заказ",
+    account: "Мои заявки",
+    login: "Вход в аккаунт",
+    register: "Регистрация"
   };
 
   async function api(path, options = {}) {
@@ -16,15 +17,31 @@ document.addEventListener("DOMContentLoaded", () => {
       "Content-Type": "application/json",
       ...(options.headers || {})
     };
+
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const response = await fetch(API + path, { ...options, headers });
+    const response = await fetch(API + path, {
+      ...options,
+      headers
+    });
+
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || data.message || "Request failed");
+      throw new Error(data.error || data.message || "Ошибка запроса");
     }
+
     return data;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[char]);
   }
 
   function showPage(name) {
@@ -40,36 +57,55 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const title = document.getElementById("page-title");
-    if (title) title.textContent = txt[name] || "SELLER IMPORT PRO";
+    if (title) {
+      title.textContent = currentUser?.role === "admin" && name === "account"
+        ? "Кабинет поставщика"
+        : txt[name] || "SELLER IMPORT PRO";
+    }
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function message(id, text, error = false) {
     const element = document.getElementById(id);
     if (!element) return;
+
     element.textContent = text;
     element.style.color = error ? "#e05252" : "#35b88a";
   }
 
-  function escapeHtml(value) {
-    return String(value ?? "").replace(/[&<>"']/g, char => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;",
-      '"': "&quot;", "'": "&#039;"
-    })[char]);
-  }
-
   function updateAccountButtons() {
     document.querySelectorAll('[data-page="login"]').forEach(button => {
-      button.textContent = token ? "\u0412\u044b\u0439\u0442\u0438" : "\u0412\u043e\u0439\u0442\u0438 \u0432 \u0430\u043a\u043a\u0430\u0443\u043d\u0442";
+      button.textContent = token ? "Выйти" : "Войти в аккаунт";
       button.dataset.action = token ? "logout" : "";
+    });
+
+    document.querySelectorAll('[data-page="account"]').forEach(button => {
+      if (currentUser?.role === "admin") {
+        button.textContent = "Кабинет поставщика";
+      } else {
+        button.textContent = "Мои заявки";
+      }
     });
   }
 
-  async function loadOrders() {
+  function money(value) {
+    return Number(value || 0).toLocaleString("ru-RU", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  // КАБИНЕТ ПОКУПАТЕЛЯ
+  async function loadCustomerOrders() {
     const account = document.getElementById("page-account");
     if (!account) return;
 
-    account.innerHTML = `<div class="content-card"><h2>${txt.account}</h2><p>\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...</p></div>`;
+    account.innerHTML = `
+      <div class="content-card">
+        <h2>Мои заявки</h2>
+        <p>Загрузка...</p>
+      </div>`;
 
     try {
       const data = await api("/orders");
@@ -79,37 +115,264 @@ document.addEventListener("DOMContentLoaded", () => {
         account.innerHTML = `
           <div class="empty-state content-card">
             <div class="empty-icon">▤</div>
-            <h2>\u0417\u0430\u044f\u0432\u043e\u043a \u043f\u043e\u043a\u0430 \u043d\u0435\u0442</h2>
-            <p>\u0421\u043e\u0437\u0434\u0430\u0439\u0442\u0435 \u043f\u0435\u0440\u0432\u0443\u044e \u0437\u0430\u044f\u0432\u043a\u0443 \u043d\u0430 \u0442\u043e\u0432\u0430\u0440 \u0438\u0437 \u041a\u0438\u0442\u0430\u044f.</p>
-            <button class="button button-primary" data-page="request">\u0421\u043e\u0437\u0434\u0430\u0442\u044c \u0437\u0430\u044f\u0432\u043a\u0443</button>
+            <h2>Заявок пока нет</h2>
+            <p>Создайте первую заявку на товар из Китая.</p>
+            <button class="button button-primary" data-page="request">
+              Создать заявку
+            </button>
           </div>`;
         return;
       }
 
       account.innerHTML = `
         <div class="content-card">
-          <h2>${txt.account}</h2>
+          <h2>Мои заявки</h2>
           <div class="orders-list">
             ${orders.map(order => `
               <article class="step-card">
-                <h3>\u0417\u0430\u044f\u0432\u043a\u0430 \u2116${escapeHtml(order.id)}</h3>
-                <p>\u0426\u0435\u043d\u0430 \u0442\u043e\u0432\u0430\u0440\u0430: ${escapeHtml(order.product_price_cny)} CNY</p>
-                <p>\u0412\u0435\u0441: ${order.weight_kg == null ? "\u041e\u0436\u0438\u0434\u0430\u0435\u0442 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438" : escapeHtml(order.weight_kg + " \u043a\u0433")}</p>
-                <p>\u0418\u0442\u043e\u0433\u043e: ${order.total_price_rub == null ? "\u0413\u043e\u0442\u043e\u0432\u0438\u0442\u0441\u044f \u0440\u0430\u0441\u0447\u0451\u0442" : escapeHtml(order.total_price_rub + " RUB")}</p>
-                <p>\u0421\u0442\u0430\u0442\u0443\u0441: ${escapeHtml(order.status)}</p>
-                <a href="${escapeHtml(order.product_url)}" target="_blank" rel="noopener noreferrer">\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0442\u043e\u0432\u0430\u0440</a>
+                <h3>Заявка №${escapeHtml(order.id)}</h3>
+                <p>Цена товара: ${escapeHtml(order.product_price_cny)} CNY</p>
+                <p>Вес: ${
+                  order.weight_kg == null
+                    ? "Ожидает проверки"
+                    : escapeHtml(order.weight_kg) + " кг"
+                }</p>
+                <p>Итого: ${
+                  order.total_price_rub == null
+                    ? "Готовится расчёт"
+                    : money(order.total_price_rub) + " RUB"
+                }</p>
+                <p>Статус: ${escapeHtml(order.status)}</p>
+                <a href="${escapeHtml(order.product_url)}"
+                   target="_blank" rel="noopener noreferrer">
+                  Открыть товар
+                </a>
               </article>
             `).join("")}
           </div>
         </div>`;
     } catch (error) {
-      account.innerHTML = `<div class="content-card"><h2>\u041e\u0448\u0438\u0431\u043a\u0430</h2><p>${escapeHtml(error.message)}</p></div>`;
+      account.innerHTML = `
+        <div class="content-card">
+          <h2>Ошибка</h2>
+          <p>${escapeHtml(error.message)}</p>
+        </div>`;
     }
   }
 
+  // КАБИНЕТ ПОСТАВЩИКА
+  async function loadAdminPanel() {
+    const account = document.getElementById("page-account");
+    if (!account) return;
+
+    account.innerHTML = `
+      <div class="content-card">
+        <h2>Кабинет поставщика</h2>
+        <p>Загрузка заявок и тарифов...</p>
+      </div>`;
+
+    try {
+      const [ordersData, settingsData] = await Promise.all([
+        api("/admin/orders"),
+        api("/admin/settings")
+      ]);
+
+      const orders = ordersData.orders || [];
+      const settings = settingsData.settings;
+
+      if (!settings) {
+        throw new Error("Настройки тарифов не найдены");
+      }
+
+      account.innerHTML = `
+        <div class="content-card">
+          <h2>Кабинет поставщика</h2>
+          <p>Администратор: ${escapeHtml(currentUser.email)}</p>
+          <p>Всего заявок: ${orders.length}</p>
+        </div>
+
+        <div class="content-card">
+          <h2>Настройки тарифов</h2>
+          <form id="admin-settings-form" class="form">
+            <label>Курс юаня (CNY → RUB)</label>
+            <input name="exchange_rate" type="number" min="0.01"
+              step="0.01" required value="${escapeHtml(settings.exchange_rate)}">
+
+            <label>Доставка за 1 кг (RUB)</label>
+            <input name="delivery_price_per_kg" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.delivery_price_per_kg)}">
+
+            <label>Страховка (%)</label>
+            <input name="insurance_percent" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.insurance_percent)}">
+
+            <label>Комиссия (%)</label>
+            <input name="commission_percent" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.commission_percent)}">
+
+            <label>Дополнительные расходы (RUB)</label>
+            <input name="extra_costs" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.extra_costs)}">
+
+            <label>Наценка (%)</label>
+            <input name="markup_percent" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.markup_percent)}">
+
+            <button class="button button-primary" type="submit">
+              Сохранить тарифы
+            </button>
+            <p id="admin-settings-message"></p>
+          </form>
+        </div>
+
+        <div class="content-card">
+          <h2>Все заявки покупателей</h2>
+          <div class="orders-list">
+            ${
+              orders.length
+                ? orders.map(order => `
+                  <article class="step-card">
+                    <h3>Заявка №${escapeHtml(order.id)}</h3>
+                    <p>Покупатель: ${escapeHtml(order.email)}</p>
+                    <p>Цена товара: ${escapeHtml(order.product_price_cny)} CNY</p>
+                    <p>Вес: ${
+                      order.weight_kg == null
+                        ? "Не указан"
+                        : escapeHtml(order.weight_kg) + " кг"
+                    }</p>
+                    <p>Итого: ${
+                      order.total_price_rub == null
+                        ? "Не рассчитано"
+                        : money(order.total_price_rub) + " RUB"
+                    }</p>
+                    <p>Статус: ${escapeHtml(order.status)}</p>
+
+                    <p>
+                      <a href="${escapeHtml(order.product_url)}"
+                         target="_blank" rel="noopener noreferrer">
+                        Открыть товар
+                      </a>
+                    </p>
+
+                    <form class="admin-order-form" data-order-id="${escapeHtml(order.id)}">
+                      <label>Вес товара (кг)</label>
+                      <input name="weight_kg" type="number"
+                        min="0.001" step="0.001" required
+                        placeholder="Например, 2.5"
+                        value="${order.weight_kg == null ? "" : escapeHtml(order.weight_kg)}">
+
+                      <button class="button button-primary" type="submit">
+                        Рассчитать стоимость
+                      </button>
+                      <p class="admin-order-message"></p>
+                    </form>
+                  </article>
+                `).join("")
+                : "<p>Пока заявок нет.</p>"
+            }
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      account.innerHTML = `
+        <div class="content-card">
+          <h2>Ошибка кабинета поставщика</h2>
+          <p>${escapeHtml(error.message)}</p>
+          <button class="button button-primary" data-action="reload-admin">
+            Повторить загрузку
+          </button>
+        </div>`;
+    }
+  }
+
+  async function loadAccount() {
+    if (!token) {
+      showPage("login");
+      return;
+    }
+
+    if (currentUser?.role === "admin") {
+      await loadAdminPanel();
+    } else {
+      await loadCustomerOrders();
+    }
+  }
+
+  // НАСТРОЙКИ ТАРИФОВ
+  document.addEventListener("submit", async event => {
+    const settingsForm = event.target.closest("#admin-settings-form");
+    if (!settingsForm) return;
+
+    event.preventDefault();
+
+    const formData = new FormData(settingsForm);
+    const body = {};
+
+    for (const field of [
+      "exchange_rate",
+      "delivery_price_per_kg",
+      "insurance_percent",
+      "commission_percent",
+      "extra_costs",
+      "markup_percent"
+    ]) {
+      body[field] = Number(formData.get(field));
+    }
+
+    const button = settingsForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+
+    try {
+      await api("/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify(body)
+      });
+
+      message("admin-settings-message", "Тарифы успешно сохранены.");
+    } catch (error) {
+      message("admin-settings-message", error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  // РАСЧЁТ ЗАЯВКИ
+  document.addEventListener("submit", async event => {
+    const form = event.target.closest(".admin-order-form");
+    if (!form) return;
+
+    event.preventDefault();
+
+    const orderId = form.dataset.orderId;
+    const weight = Number(form.elements.weight_kg.value);
+    const button = form.querySelector('button[type="submit"]');
+    const result = form.querySelector(".admin-order-message");
+
+    button.disabled = true;
+    result.textContent = "Выполняется расчёт...";
+
+    try {
+      const data = await api(`/admin/orders/${orderId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ weight_kg: weight })
+      });
+
+      result.textContent =
+        `Расчёт сохранён. Итог: ${money(data.calculation.total_price_rub)} RUB`;
+
+      await loadAdminPanel();
+    } catch (error) {
+      result.textContent = error.message;
+      result.style.color = "#e05252";
+      button.disabled = false;
+    }
+  });
+
+  // НАВИГАЦИЯ И ВЫХОД
   document.addEventListener("click", async event => {
     const button = event.target.closest("[data-page], [data-action]");
     if (!button) return;
+
     event.preventDefault();
 
     if (button.dataset.action === "logout") {
@@ -118,22 +381,38 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (error) {
         console.warn(error);
       }
+
       token = "";
+      currentUser = null;
       localStorage.removeItem("sip_token");
       updateAccountButtons();
       showPage("home");
       return;
     }
 
-    showPage(button.dataset.page);
-    if (button.dataset.page === "account" && token) loadOrders();
+    if (button.dataset.action === "reload-admin") {
+      await loadAdminPanel();
+      return;
+    }
+
+    const page = button.dataset.page;
+    if (!page) return;
+
+    showPage(page);
+
+    if (page === "account" && token) {
+      await loadAccount();
+    }
   });
 
+  // РЕГИСТРАЦИЯ
   const registerForm = document.getElementById("register-form");
+
   if (registerForm) {
     registerForm.addEventListener("submit", async event => {
       event.preventDefault();
-      message("register-message", "\u0421\u043e\u0437\u0434\u0430\u0451\u043c \u0430\u043a\u043a\u0430\u0443\u043d\u0442...");
+
+      message("register-message", "Создаём аккаунт...");
 
       try {
         const data = await api("/register", {
@@ -143,22 +422,29 @@ document.addEventListener("DOMContentLoaded", () => {
             password: document.getElementById("register-password").value
           })
         });
+
         token = data.token;
+        currentUser = data.user;
+
         localStorage.setItem("sip_token", token);
         updateAccountButtons();
         showPage("account");
-        loadOrders();
+        await loadAccount();
       } catch (error) {
         message("register-message", error.message, true);
       }
     });
   }
 
+  // ВХОД
   const loginForm = document.getElementById("login-form");
+
   if (loginForm) {
     loginForm.addEventListener("submit", async event => {
       event.preventDefault();
-      message("login-message", "\u0412\u0445\u043e\u0434...");
+
+      message("login-message", "Вход...");
+
       try {
         const data = await api("/login", {
           method: "POST",
@@ -167,25 +453,31 @@ document.addEventListener("DOMContentLoaded", () => {
             password: document.getElementById("login-password").value
           })
         });
+
         token = data.token;
+        currentUser = data.user;
+
         localStorage.setItem("sip_token", token);
         updateAccountButtons();
         showPage("account");
-        loadOrders();
+        await loadAccount();
       } catch (error) {
         message("login-message", error.message, true);
       }
     });
   }
 
+  // СОЗДАНИЕ ЗАЯВКИ ПОКУПАТЕЛЕМ
   const requestForm = document.getElementById("request-form");
+
   if (requestForm) {
     requestForm.addEventListener("submit", async event => {
       event.preventDefault();
-      message("request-message", "\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u043c \u0437\u0430\u044f\u0432\u043a\u0443...");
+
+      message("request-message", "Отправляем заявку...");
 
       if (!token) {
-        message("request-message", "\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u043e\u0439\u0434\u0438\u0442\u0435 \u0432 \u0430\u043a\u043a\u0430\u0443\u043d\u0442.", true);
+        message("request-message", "Сначала войдите в аккаунт.", true);
         showPage("login");
         return;
       }
@@ -195,30 +487,51 @@ document.addEventListener("DOMContentLoaded", () => {
           method: "POST",
           body: JSON.stringify({
             product_url: document.getElementById("product-url").value.trim(),
-            product_price_cny: Number(document.getElementById("product-price").value)
+            product_price_cny: Number(
+              document.getElementById("product-price").value
+            )
           })
         });
+
         requestForm.reset();
-        message("request-message", "\u0417\u0430\u044f\u0432\u043a\u0430 \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430.");
+        message("request-message", "Заявка успешно отправлена.");
       } catch (error) {
         message("request-message", error.message, true);
       }
     });
   }
 
+  // ПРОВЕРКА СЕССИИ И РОЛИ
   async function checkSession() {
-    if (!token) return;
+    if (!token) {
+      updateAccountButtons();
+      return;
+    }
+
     try {
-      await api("/me");
+      const data = await api("/me");
+      currentUser = data.user;
       updateAccountButtons();
     } catch (error) {
       token = "";
+      currentUser = null;
       localStorage.removeItem("sip_token");
       updateAccountButtons();
     }
   }
 
-  updateAccountButtons();
-  checkSession();
-  console.log("SELLER IMPORT PRO: JavaScript loaded");
+  async function start() {
+    await checkSession();
+
+    if (token && currentUser) {
+      showPage("account");
+      await loadAccount();
+    } else {
+      updateAccountButtons();
+    }
+
+    console.log("SELLER IMPORT PRO: JavaScript loaded");
+  }
+
+  start();
 });
