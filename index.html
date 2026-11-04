@@ -5,136 +5,325 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#090e1b">
-  <meta name="description" content="SELLER IMPORT PRO — расчёт и сопровождение заказов из Китая">
   <title>SELLER IMPORT PRO — Заказы из Китая</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-logo">S</div>
-      <div>
-        <div class="brand-name">SELLER IMPORT</div>
-        <div class="brand-subtitle">PRO</div>
-      </div>
-    </div>
 
-    <nav class="navigation">
-      <button class="nav-link active" data-page="home">Главная</button>
-      <button class="nav-link" data-page="request">Рассчитать заказ</button>
-      <button class="nav-link" data-page="account">Мои заявки</button>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a href="#" class="brand" data-page="home">
+      <span class="brand-mark">S</span>
+      <span>
+        SELLER IMPORT <b>PRO</b>
+        <small>CHINA IMPORT PLATFORM</small>
+      </span>
+    </a>
+
+    <nav class="nav">
+      <button class="nav-link active" data-page="home">
+        <span>⌂</span> Главная
+      </button>
+      <button class="nav-link" data-page="request">
+        <span>＋</span> Рассчитать заказ
+      </button>
+      <button class="nav-link" data-page="account">
+        <span>▤</span> Мои заявки
+      </button>
+      <button class="nav-link" data-page="login">
+        <span>↪</span> Войти в аккаунт
+      </button>
+      <button class="nav-link" data-page="register">
+        <span>＋</span> Регистрация
+      </button>
     </nav>
 
     <div class="sidebar-bottom">
-      <div class="sidebar-caption">Импорт из Китая</div>
-      <div class="sidebar-caption">Расчёт стоимости и контроль заказов</div>
+      <div class="help-card">
+        <strong>Нужна помощь?</strong>
+        <p>Оставьте заявку на товар, а мы проверим его и подготовим расчёт доставки.</p>
+      </div>
+      <small>SELLER IMPORT PRO © 2026</small>
     </div>
   </aside>
 
-  <main class="main-content">
+  <main class="main">
     <header class="topbar">
-      <div class="topbar-title" id="page-title">Главная</div>
-      <div class="topbar-actions">
-        <button class="button secondary" id="login-button" data-page="login">Войти</button>
-        <button class="button primary" id="register-button" data-page="register">Регистрация</button>
-        <button class="button secondary hidden" id="logout-button">Выйти</button>
+      <div>
+        <div class="eyebrow">CHINA IMPORT PLATFORM</div>
+        <h1 id="page-title">Главная</h1>
+      </div>
+      <div class="top-actions">
+        <span class="secure-label">Безопасная система заказов</span>
+        <button class="button button-outline" data-page="login">
+          Войти в аккаунт
+        </button>
       </div>
     </header>
 
-    <div id="app-message"></div>
-
+    <!-- ГЛАВНАЯ -->
     <section class="page active" id="page-home">
       <div class="hero">
-        <div class="hero-content">
-          <div class="eyebrow">SELLER IMPORT PRO</div>
-          <h1>Заказывайте товары из Китая с понятным расчётом стоимости</h1>
-          <p>Рассчитайте расходы, отправьте заявку и отслеживайте этапы доставки в личном кабинете.</p>
-          <button class="button primary" data-page="request">Рассчитать заказ</button>
+        <div class="hero-copy">
+          <span class="pill">ЗАКАЗЫ ИЗ КИТАЯ</span>
+
+          <h2>
+            Товары из Китая.
+            <em>Без лишних сложностей.</em>
+          </h2>
+
+          <p>
+            Отправьте ссылку на товар. Мы проверим его,
+            уточним вес и подготовим расчёт стоимости
+            доставки до России.
+          </p>
+
+          <button class="button button-primary" data-page="request">
+            Рассчитать заказ →
+          </button>
+
+          <div class="hero-note">
+            <span class="live-dot"></span>
+            Расчёт после проверки товара
+          </div>
+        </div>
+
+        <div class="hero-art">
+          <div class="orbit"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="package">
+            <div class="package-tape"></div>
+            <div class="package-logo">SIP</div>
+            <div class="package-line"></div>
+            <div class="package-line short"></div>
+          </div>
+
+          <div class="floating-tag tag-top">CHINA → RUSSIA</div>
+          <div class="floating-tag tag-bottom">IMPORT SERVICE</div>
         </div>
       </div>
 
-      <div class="features">
-        <div class="feature-card">
-          <h3>Расчёт стоимости</h3>
-          <p>Стоимость товара, доставка, страховка, комиссия и дополнительные расходы.</p>
+      <div class="section-heading">
+        <div class="eyebrow">КАК ЭТО РАБОТАЕТ</div>
+        <h2>Три простых шага</h2>
+      </div>
+
+      <div class="steps-grid">
+        <article class="step-card">
+          <div class="step-icon">↗</div>
+          <span class="step-number">01</span>
+          <h3>Отправьте ссылку</h3>
+          <p>Укажите ссылку на товар и его цену в юанях.</p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-icon">⌕</div>
+          <span class="step-number">02</span>
+          <h3>Проверка товара</h3>
+          <p>Мы проверим товар и уточним его фактический вес.</p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-icon">₽</div>
+          <span class="step-number">03</span>
+          <h3>Получите расчёт</h3>
+          <p>Стоимость заказа появится в вашем личном кабинете.</p>
+        </article>
+      </div>
+
+      <div class="bottom-cta">
+        <div>
+          <h2>Готовы оформить первый заказ?</h2>
+          <p>Отправьте ссылку на интересующий вас товар.</p>
         </div>
-        <div class="feature-card">
-          <h3>Контроль заказов</h3>
-          <p>Следите за изменением статуса и историей обработки заявки.</p>
-        </div>
-        <div class="feature-card">
-          <h3>Личный кабинет</h3>
-          <p>Все ваши заявки и уведомления собраны в одном месте.</p>
-        </div>
+        <button class="button button-primary" data-page="request">
+          Создать заявку →
+        </button>
       </div>
     </section>
 
+    <!-- СОЗДАНИЕ ЗАЯВКИ -->
     <section class="page" id="page-request">
-      <div class="page-heading">
-        <h1>Рассчитать заказ</h1>
-        <p>Укажите ссылку на товар и его стоимость в юанях.</p>
-      </div>
+      <div class="content-card request-card">
+        <div class="card-heading">
+          <div class="eyebrow">НОВЫЙ ЗАКАЗ</div>
+          <h2>Рассчитать заказ</h2>
+          <p>
+            Отправьте информацию о товаре.
+            Вес и стоимость доставки будут уточнены после проверки.
+          </p>
+        </div>
 
-      <div class="panel">
-        <form id="order-form">
+        <form id="request-form">
           <label for="product-url">Ссылка на товар</label>
-          <input id="product-url" name="product_url" type="url" placeholder="https://detail.1688.com/offer/..." required>
+          <input
+            type="url"
+            id="product-url"
+            placeholder="https://..."
+            required
+          >
 
-          <label for="product-price">Стоимость товара (CNY)</label>
-          <input id="product-price" name="product_price_cny" type="number" min="0.01" step="0.01" placeholder="Например, 780" required>
+          <label for="product-price">
+            Цена товара <small>(в китайских юанях)</small>
+          </label>
 
-          <button class="button primary" type="submit">Отправить заявку</button>
+          <div class="input-with-suffix">
+            <input
+              type="number"
+              id="product-price"
+              min="0.01"
+              step="0.01"
+              placeholder="Например, 150"
+              required
+            >
+            <span>CNY ¥</span>
+          </div>
+
+          <div class="notice">
+            <span>i</span>
+            <p>
+              Не нужно самостоятельно указывать вес.
+              Мы уточним его после проверки товара.
+            </p>
+          </div>
+
+          <label for="request-comment">
+            Комментарий <small>(необязательно)</small>
+          </label>
+
+          <textarea
+            id="request-comment"
+            rows="3"
+            placeholder="Дополнительная информация о товаре..."
+          ></textarea>
+
+          <button type="submit" class="button button-primary button-wide">
+            Отправить заявку
+          </button>
+
+          <p id="request-message" class="form-message"></p>
         </form>
       </div>
     </section>
 
+    <!-- ЛИЧНЫЙ КАБИНЕТ -->
     <section class="page" id="page-account">
-      <div class="page-heading">
-        <h1>Личный кабинет</h1>
-        <p>Ваши заявки, уведомления и история заказов.</p>
+      <div class="content-card empty-state">
+        <div class="empty-icon">▤</div>
+        <h2>Мои заявки</h2>
+        <p>Войдите в аккаунт, чтобы увидеть свои заказы.</p>
+        <button class="button button-primary" data-page="login">
+          Войти в аккаунт
+        </button>
       </div>
-      <div id="account-content"></div>
     </section>
 
+    <!-- ВХОД -->
     <section class="page" id="page-login">
-      <div class="page-heading">
-        <h1>Вход в аккаунт</h1>
-      </div>
-      <div class="panel">
-        <form id="login-form">
-          <label for="login-email">Электронная почта</label>
-          <input id="login-email" type="email" name="email" required>
+      <div class="auth-wrap">
+        <div class="auth-aside">
+          <div class="brand-mark">S</div>
+          <div class="eyebrow">SELLER IMPORT PRO</div>
+          <h2>С возвращением!</h2>
+          <p>
+            Войдите в личный кабинет,
+            чтобы управлять своими заявками.
+          </p>
+        </div>
 
-          <label for="login-password">Пароль</label>
-          <input id="login-password" type="password" name="password" required>
+        <div class="content-card auth-card">
+          <h2>Вход в аккаунт</h2>
+          <p>Введите данные для авторизации.</p>
 
-          <button class="button primary" type="submit">Войти</button>
-        </form>
+          <form id="login-form">
+            <label for="login-email">Электронная почта</label>
+            <input
+              type="email"
+              id="login-email"
+              placeholder="example@mail.com"
+              required
+            >
+
+            <label for="login-password">Пароль</label>
+            <input
+              type="password"
+              id="login-password"
+              placeholder="Ваш пароль"
+              required
+            >
+
+            <button type="submit" class="button button-primary button-wide">
+              Войти
+            </button>
+
+            <p id="login-message" class="form-message"></p>
+          </form>
+
+          <div class="auth-switch">
+            Нет аккаунта?
+            <button class="text-button" data-page="register">
+              Зарегистрироваться
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 
+    <!-- РЕГИСТРАЦИЯ -->
     <section class="page" id="page-register">
-      <div class="page-heading">
-        <h1>Создать аккаунт</h1>
-      </div>
-      <div class="panel">
+      <div class="content-card auth-card register-card">
+        <div class="eyebrow">НОВЫЙ ПОЛЬЗОВАТЕЛЬ</div>
+        <h2>Создание аккаунта</h2>
+        <p>Зарегистрируйтесь для оформления заказов.</p>
+
         <form id="register-form">
+          <label for="register-name">Ваше имя</label>
+          <input
+            type="text"
+            id="register-name"
+            placeholder="Как к вам обращаться"
+          >
+
           <label for="register-email">Электронная почта</label>
-          <input id="register-email" type="email" name="email" required>
+          <input
+            type="email"
+            id="register-email"
+            placeholder="example@mail.com"
+            required
+          >
 
           <label for="register-password">Пароль</label>
-          <input id="register-password" type="password" name="password" minlength="6" required>
+          <input
+            type="password"
+            id="register-password"
+            placeholder="Минимум 8 символов"
+            minlength="8"
+            required
+          >
 
-          <button class="button primary" type="submit">Зарегистрироваться</button>
+          <button type="submit" class="button button-primary button-wide">
+            Зарегистрироваться
+          </button>
+
+          <p id="register-message" class="form-message"></p>
         </form>
+
+        <div class="auth-switch">
+          Уже есть аккаунт?
+          <button class="text-button" data-page="login">
+            Войти
+          </button>
+        </div>
       </div>
     </section>
 
     <footer class="footer">
-      SELLER IMPORT PRO
+      <span>SELLER IMPORT PRO © 2026</span>
+      <span>Платформа заказов из Китая</span>
     </footer>
   </main>
+</div>
 
-  <script src="app-new.js"></script>
+<script src="app-new.js"></script>
 </body>
 </html>
