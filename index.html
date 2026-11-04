@@ -1,283 +1,342 @@
 
-document.addEventListener("DOMContentLoaded", () => {
-  const API = "/api";
-  const pageTitles = {
-    home: "Главная",
-    request: "Рассчитать заказ",
-    account: "Мои заявки",
-    login: "Вход в аккаунт",
-    register: "Регистрация"
-  };
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090e1b">
+  <title>SELLER IMPORT PRO — Заказы из Китая</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
-  let token = localStorage.getItem("sip_token") || "";
+<div class="app-shell">
 
-  async function api(path, options = {}) {
-    const headers = {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers
-    };
+  <aside class="sidebar">
+    <a href="#" class="brand" data-page="home">
+      <span class="brand-mark">S</span>
+      <span>
+        SELLER IMPORT <b>PRO</b>
+        <small>CHINA IMPORT PLATFORM</small>
+      </span>
+    </a>
 
-    const response = await fetch(API + path, {
-      ...options,
-      headers
-    });
+    <nav class="nav">
+      <button class="nav-link active" data-page="home">
+        <span>⌂</span> Главная
+      </button>
+      <button class="nav-link" data-page="request">
+        <span>＋</span> Рассчитать заказ
+      </button>
+      <button class="nav-link" data-page="account">
+        <span>▤</span> Мои заявки
+      </button>
+      <button class="nav-link" data-page="login">
+        <span>↪</span> Войти в аккаунт
+      </button>
+      <button class="nav-link" data-page="register">
+        <span>＋</span> Регистрация
+      </button>
+    </nav>
 
-    const data = await response.json();
+    <div class="sidebar-bottom">
+      <div class="help-card">
+        <strong>Нужна помощь?</strong>
+        <p>Оставьте заявку на товар, а мы проверим его и подготовим расчёт доставки.</p>
+      </div>
+      <small>SELLER IMPORT PRO © 2026</small>
+    </div>
+  </aside>
 
-    if (!response.ok) {
-      throw new Error(data.error || "Ошибка сервера");
-    }
+  <main class="main">
 
-    return data;
-  }
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">CHINA IMPORT PLATFORM</div>
+        <h1 id="page-title">Главная</h1>
+      </div>
+      <div class="top-actions">
+        <span class="secure-label">Безопасная система заказов</span>
+        <button class="button button-outline" data-page="login">
+          Войти в аккаунт
+        </button>
+      </div>
+    </header>
 
-  function showPage(name) {
-    const target = document.getElementById(`page-${name}`);
-    if (!target) return;
+    <!-- ГЛАВНАЯ -->
+    <section class="page active" id="page-home">
 
-    document.querySelectorAll(".page").forEach(page => {
-      page.classList.toggle("active", page === target);
-    });
+      <div class="hero">
+        <div class="hero-copy">
+          <span class="pill">ЗАКАЗЫ ИЗ КИТАЯ</span>
 
-    document.querySelectorAll("[data-page]").forEach(button => {
-      button.classList.toggle("active", button.dataset.page === name);
-    });
+          <h2>
+            Товары из Китая.
+            <em>Без лишних сложностей.</em>
+          </h2>
 
-    const title = document.getElementById("page-title");
-    if (title) title.textContent = pageTitles[name] || "SELLER IMPORT PRO";
+          <p>
+            Отправьте ссылку на товар. Мы проверим его,
+            уточним вес и подготовим расчёт стоимости
+            доставки до России.
+          </p>
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+          <button class="button button-primary"
+                  data-page="request">
+            Рассчитать заказ →
+          </button>
 
-  function message(id, text, error = false) {
-    const element = document.getElementById(id);
-    if (!element) return;
-
-    element.textContent = text;
-    element.style.color = error ? "#ff7777" : "#67d9a2";
-  }
-
-  function updateAccountButtons() {
-    const loginButtons = document.querySelectorAll(
-      '[data-page="login"]'
-    );
-
-    loginButtons.forEach(button => {
-      button.textContent = token ? "Выйти" : "Войти";
-      button.dataset.action = token ? "logout" : "";
-    });
-  }
-
-  document.addEventListener("click", async event => {
-    const button = event.target.closest("[data-page]");
-    if (!button) return;
-
-    event.preventDefault();
-
-    if (button.dataset.action === "logout") {
-      try {
-        await api("/logout", { method: "POST" });
-      } catch (error) {
-        console.error(error);
-      }
-
-      token = "";
-      localStorage.removeItem("sip_token");
-      updateAccountButtons();
-      showPage("home");
-      return;
-    }
-
-    const page = button.dataset.page;
-
-    if (page === "account" && token) {
-      await loadOrders();
-    }
-
-    showPage(page);
-  });
-
-  // Регистрация
-  const registerForm = document.getElementById("register-form");
-
-  registerForm?.addEventListener("submit", async event => {
-    event.preventDefault();
-
-    message("register-message", "Создаём аккаунт...");
-
-    try {
-      const result = await api("/register", {
-        method: "POST",
-        body: JSON.stringify({
-          email: document.getElementById("register-email").value,
-          password: document.getElementById("register-password").value
-        })
-      });
-
-      token = result.token;
-      localStorage.setItem("sip_token", token);
-
-      updateAccountButtons();
-      message("register-message", "Аккаунт успешно создан!");
-
-      registerForm.reset();
-      showPage("account");
-      await loadOrders();
-    } catch (error) {
-      message("register-message", error.message, true);
-    }
-  });
-
-  // Вход
-  const loginForm = document.getElementById("login-form");
-
-  loginForm?.addEventListener("submit", async event => {
-    event.preventDefault();
-
-    message("login-message", "Выполняется вход...");
-
-    try {
-      const result = await api("/login", {
-        method: "POST",
-        body: JSON.stringify({
-          email: document.getElementById("login-email").value,
-          password: document.getElementById("login-password").value
-        })
-      });
-
-      token = result.token;
-      localStorage.setItem("sip_token", token);
-
-      updateAccountButtons();
-      message("login-message", "Вход выполнен!");
-
-      loginForm.reset();
-      showPage("account");
-      await loadOrders();
-    } catch (error) {
-      message("login-message", error.message, true);
-    }
-  });
-
-  // Создание заявки
-  const requestForm = document.getElementById("request-form");
-
-  requestForm?.addEventListener("submit", async event => {
-    event.preventDefault();
-
-    if (!token) {
-      message("request-message", "Сначала войдите или создайте аккаунт.", true);
-      showPage("login");
-      return;
-    }
-
-    message("request-message", "Отправляем заявку...");
-
-    try {
-      const result = await api("/orders", {
-        method: "POST",
-        body: JSON.stringify({
-          product_url: document.getElementById("product-url").value,
-          product_price_cny: document.getElementById("product-price").value
-        })
-      });
-
-      message("request-message", `Заявка №${result.order_id} успешно создана!`);
-      requestForm.reset();
-    } catch (error) {
-      message("request-message", error.message, true);
-    }
-  });
-
-  // Список заявок
-  async function loadOrders() {
-    const section = document.getElementById("page-account");
-    if (!section) return;
-
-    if (!token) {
-      section.innerHTML = `
-        <div class="empty-state content-card">
-          <h2>Войдите в аккаунт</h2>
-          <p>Чтобы увидеть свои заявки, необходимо авторизоваться.</p>
-          <button class="button button-primary" data-page="login">Войти</button>
-        </div>`;
-      return;
-    }
-
-    try {
-      const result = await api("/orders");
-
-      if (!result.orders.length) {
-        section.innerHTML = `
-          <div class="empty-state content-card">
-            <div class="empty-icon">▤</div>
-            <h2>Пока нет заявок</h2>
-            <p>Создайте первую заявку на товар из Китая.</p>
-            <button class="button button-primary" data-page="request">Создать заявку</button>
-          </div>`;
-        return;
-      }
-
-      const rows = result.orders.map(order => `
-        <article class="step-card">
-          <span class="step-number">ЗАЯВКА №${order.id}</span>
-          <h3>${escapeHtml(order.product_url)}</h3>
-          <p>Цена товара: ${Number(order.product_price_cny).toFixed(2)} ¥</p>
-          <p>Вес: ${order.weight_kg == null ? "Уточняется" : Number(order.weight_kg) + " кг"}</p>
-          <p>Итоговая стоимость: ${
-            order.total_price_rub == null
-              ? "Готовится"
-              : Number(order.total_price_rub).toFixed(2) + " ₽"
-          }</p>
-          <p>Статус: ${escapeHtml(order.status)}</p>
-        </article>
-      `).join("");
-
-      section.innerHTML = `
-        <div class="section-heading">
-          <div><span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span><h2>Мои заявки</h2></div>
-          <button class="button button-primary" data-page="request">Новая заявка</button>
+          <div class="hero-note">
+            <span class="live-dot"></span>
+            Расчёт после проверки товара
+          </div>
         </div>
-        <div class="steps-grid">${rows}</div>
-      `;
-    } catch (error) {
-      if (error.message === "Требуется вход") {
-        token = "";
-        localStorage.removeItem("sip_token");
-        updateAccountButtons();
-      }
 
-      section.innerHTML = `
-        <div class="content-card">
-          <h2>Не удалось загрузить заявки</h2>
-          <p>${escapeHtml(error.message)}</p>
-          <button class="button button-primary" data-page="login">Войти</button>
-        </div>`;
-    }
-  }
+        <div class="hero-art">
+          <div class="orbit"></div>
+          <div class="orbit orbit-two"></div>
 
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, character => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    })[character]);
-  }
+          <div class="package">
+            <div class="package-tape"></div>
+            <div class="package-logo">SIP</div>
+            <div class="package-line"></div>
+            <div class="package-line short"></div>
+          </div>
 
-  updateAccountButtons();
+          <div class="floating-tag tag-top">CHINA → RUSSIA</div>
+          <div class="floating-tag tag-bottom">IMPORT SERVICE</div>
+        </div>
+      </div>
 
-  if (token) {
-    api("/me")
-      .then(() => updateAccountButtons())
-      .catch(() => {
-        token = "";
-        localStorage.removeItem("sip_token");
-        updateAccountButtons();
-      });
-  }
+      <div class="section-heading">
+        <div class="eyebrow">КАК ЭТО РАБОТАЕТ</div>
+        <h2>Три простых шага</h2>
+      </div>
 
-  console.log("SELLER IMPORT PRO: JavaScript загружен успешно");
-});
+      <div class="steps-grid">
+        <article class="step-card">
+          <div class="step-icon">↗</div>
+          <span class="step-number">01</span>
+          <h3>Отправьте ссылку</h3>
+          <p>Укажите ссылку на товар и его цену в юанях.</p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-icon">⌕</div>
+          <span class="step-number">02</span>
+          <h3>Проверка товара</h3>
+          <p>Мы проверим товар и уточним его фактический вес.</p>
+        </article>
+
+        <article class="step-card">
+          <div class="step-icon">₽</div>
+          <span class="step-number">03</span>
+          <h3>Получите расчёт</h3>
+          <p>Стоимость заказа появится в вашем личном кабинете.</p>
+        </article>
+      </div>
+
+      <div class="bottom-cta">
+        <div>
+          <h2>Готовы оформить первый заказ?</h2>
+          <p>Отправьте ссылку на интересующий вас товар.</p>
+        </div>
+        <button class="button button-primary" data-page="request">
+          Создать заявку →
+        </button>
+      </div>
+
+    </section>
+
+    <!-- СОЗДАНИЕ ЗАЯВКИ -->
+    <section class="page" id="page-request">
+      <div class="content-card request-card">
+
+        <div class="card-heading">
+          <div class="eyebrow">НОВЫЙ ЗАКАЗ</div>
+          <h2>Рассчитать заказ</h2>
+          <p>
+            Отправьте информацию о товаре.
+            Вес и стоимость доставки будут уточнены после проверки.
+          </p>
+        </div>
+
+        <form id="request-form">
+
+          <label for="product-url">Ссылка на товар</label>
+          <input
+            type="url"
+            id="product-url"
+            placeholder="https://..."
+            required
+          >
+
+          <label for="product-price">
+            Цена товара <small>(в китайских юанях)</small>
+          </label>
+          <div class="input-with-suffix">
+            <input
+              type="number"
+              id="product-price"
+              min="0.01"
+              step="0.01"
+              placeholder="Например, 150"
+              required
+            >
+            <span>CNY ¥</span>
+          </div>
+
+          <div class="notice">
+            <span>i</span>
+            <p>
+              Не нужно самостоятельно указывать вес.
+              Мы уточним его после проверки товара.
+            </p>
+          </div>
+
+          <label for="request-comment">
+            Комментарий <small>(необязательно)</small>
+          </label>
+          <textarea
+            id="request-comment"
+            rows="3"
+            placeholder="Дополнительная информация о товаре..."
+          ></textarea>
+
+          <button type="submit" class="button button-primary button-wide">
+            Отправить заявку
+          </button>
+
+          <p id="request-message" class="form-message"></p>
+        </form>
+
+      </div>
+    </section>
+
+    <!-- ЛИЧНЫЙ КАБИНЕТ -->
+    <section class="page" id="page-account">
+      <div class="content-card empty-state">
+        <div class="empty-icon">▤</div>
+        <h2>Мои заявки</h2>
+        <p>Войдите в аккаунт, чтобы увидеть свои заказы.</p>
+        <button class="button button-primary" data-page="login">
+          Войти в аккаунт
+        </button>
+      </div>
+    </section>
+
+    <!-- ВХОД -->
+    <section class="page" id="page-login">
+      <div class="auth-wrap">
+
+        <div class="auth-aside">
+          <div class="brand-mark">S</div>
+          <div class="eyebrow">SELLER IMPORT PRO</div>
+          <h2>С возвращением!</h2>
+          <p>
+            Войдите в личный кабинет,
+            чтобы управлять своими заявками.
+          </p>
+        </div>
+
+        <div class="content-card auth-card">
+          <h2>Вход в аккаунт</h2>
+          <p>Введите данные для авторизации.</p>
+
+          <form id="login-form">
+            <label for="login-email">Электронная почта</label>
+            <input
+              type="email"
+              id="login-email"
+              placeholder="example@mail.com"
+              required
+            >
+
+            <label for="login-password">Пароль</label>
+            <input
+              type="password"
+              id="login-password"
+              placeholder="Ваш пароль"
+              required
+            >
+
+            <button type="submit" class="button button-primary button-wide">
+              Войти
+            </button>
+
+            <p id="login-message" class="form-message"></p>
+          </form>
+
+          <div class="auth-switch">
+            Нет аккаунта?
+            <button class="text-button" data-page="register">
+              Зарегистрироваться
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- РЕГИСТРАЦИЯ -->
+    <section class="page" id="page-register">
+      <div class="content-card auth-card register-card">
+
+        <div class="eyebrow">НОВЫЙ ПОЛЬЗОВАТЕЛЬ</div>
+        <h2>Создание аккаунта</h2>
+        <p>Зарегистрируйтесь для оформления заказов.</p>
+
+        <form id="register-form">
+
+          <label for="register-name">Ваше имя</label>
+          <input
+            type="text"
+            id="register-name"
+            placeholder="Как к вам обращаться"
+          >
+
+          <label for="register-email">Электронная почта</label>
+          <input
+            type="email"
+            id="register-email"
+            placeholder="example@mail.com"
+            required
+          >
+
+          <label for="register-password">Пароль</label>
+          <input
+            type="password"
+            id="register-password"
+            placeholder="Минимум 8 символов"
+            minlength="8"
+            required
+          >
+
+          <button type="submit" class="button button-primary button-wide">
+            Зарегистрироваться
+          </button>
+
+          <p id="register-message" class="form-message"></p>
+        </form>
+
+        <div class="auth-switch">
+          Уже есть аккаунт?
+          <button class="text-button" data-page="login">
+            Войти
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>SELLER IMPORT PRO © 2026</span>
+      <span>Платформа заказов из Китая</span>
+    </footer>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
