@@ -8,10 +8,7 @@ const json = (data, status = 200) =>
 function base64url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function fromBase64url(value) {
@@ -57,24 +54,13 @@ async function createPasswordHash(password) {
 }
 
 async function verifyPassword(password, stored) {
-  try {
-    const parts = stored.split("$");
-    if (parts.length !== 4 || parts[0] !== "pbkdf2") return false;
+  const parts = stored.split("$");
+  if (parts.length !== 4 || parts[0] !== "pbkdf2") return false;
 
-    const salt = fromBase64url(parts[2]);
-    const hash = await hashPassword(password, salt);
-    return hash === parts[3];
-  } catch {
-    return false;
-  }
-}
+  const salt = fromBase64url(parts[2]);
+  const hash = await hashPassword(password, salt);
 
-function effectiveRole(user, env) {
-  const adminEmail = String(env.ADMIN_EMAIL || "").trim().toLowerCase();
-
-  return adminEmail && user.email.toLowerCase() === adminEmail
-    ? "admin"
-    : "customer";
+  return hash === parts[3];
 }
 
 async function getUser(request, env) {
@@ -88,7 +74,7 @@ async function getUser(request, env) {
   const tokenHash = await sha256(token);
 
   const user = await env.DB.prepare(`
-    SELECT users.id, users.email
+    SELECT users.id, users.email, users.role
     FROM sessions
     JOIN users ON users.id = sessions.user_id
     WHERE sessions.token_hash = ?
@@ -97,24 +83,17 @@ async function getUser(request, env) {
 
   if (!user) return null;
 
-  return {
-    ...user,
-    role: effectiveRole(user, env)
-  };
+  const adminEmail = String(env.ADMIN_EMAIL || "").trim().toLowerCase();
+
+  if (adminEmail && user.email.toLowerCase() === adminEmail) {
+    user.role = "admin";
+  }
+
+  return user;
 }
 
-async function requireAdmin(request, env) {
-  const user = await getUser(request, env);
-
-  if (!user) {
-    return { error: json({ error: "Требуется вход" }, 401) };
-  }
-
-  if (user.role !== "admin") {
-    return { error: json({ error: "Недостаточно прав" }, 403) };
-  }
-
-  return { user };
+function isAdmin(user) {
+  return user?.role === "admin";
 }
 
 async function createSession(user, env) {
@@ -133,44 +112,22 @@ async function createSession(user, env) {
   return token;
 }
 
-function validNumber(value, min = 0, max = 100000000) {
-  const number = Number(value);
-  return Number.isFinite(number) && number >= min && number <= max;
+async function requireAdmin(request, env) {
+  const user = await getUser(request, env);
+
+  if (!user) {
+    return { error: json({ error: "Требуется вход" }, 401) };
+  }
+
+  if (!isAdmin(user)) {
+    return { error: json({ error: "Недостаточно прав" }, 403) };
+  }
+
+  return { user };
 }
 
-async function getSettings(env) {
-  return await env.DB.prepare(`
-    SELECT exchange_rate, delivery_price_per_kg,
-           insurance_percent, commission_percent,
-           extra_costs, markup_percent
-    FROM settings
-    WHERE id = 1
-  `).first();
-}
-
-function calculateOrder(order, settings, weight) {
-  const productRub = order.product_price_cny * settings.exchange_rate;
-  const delivery = weight * settings.delivery_price_per_kg;
-  const insurance = productRub * settings.insurance_percent / 100;
-  const commission = productRub * settings.commission_percent / 100;
-
-  const subtotal =
-    productRub + delivery + insurance +
-    commission + settings.extra_costs;
-
-  const markup = subtotal * settings.markup_percent / 100;
-  const total = subtotal + markup;
-
-  return {
-    weight_kg: weight,
-    delivery_price_per_kg: settings.delivery_price_per_kg,
-    exchange_rate: settings.exchange_rate,
-    insurance,
-    commission,
-    extra_costs: settings.extra_costs,
-    markup,
-    total_price_rub: Math.round(total * 100) / 100
-  };
+function validNonNegative(value) {
+  return Number.isFinite(value) && value >= 0;
 }
 
 export default {
@@ -180,6 +137,7 @@ export default {
     const method = request.method;
 
     try {
+      // ПРОВЕРКА СЕРВЕРА И БАЗЫ
       if (path === "/api/health" && method === "GET") {
         const result = await env.DB
           .prepare("SELECT 1 AS connected")
@@ -191,6 +149,7 @@ export default {
         });
       }
 
+      // РЕГИСТРАЦИЯ
       if (path === "/api/register" && method === "POST") {
         const body = await request.json();
         const email = String(body.email || "").trim().toLowerCase();
@@ -201,9 +160,7 @@ export default {
         }
 
         if (password.length < 8 || password.length > 128) {
-          return json({
-            error: "Пароль должен содержать от 8 до 128 символов"
-          }, 400);
+          return json({ error: "Пароль должен содержать от 8 до 128 символов" }, 400);
         }
 
         const existing = await env.DB.prepare(
@@ -224,21 +181,25 @@ export default {
         const user = {
           id: result.meta.last_row_id,
           email,
-          role: effectiveRole({ email }, env)
+          role: "customer"
         };
+
+        const adminEmail = String(env.ADMIN_EMAIL || "").trim().toLowerCase();
+        if (adminEmail && email === adminEmail) user.role = "admin";
 
         const token = await createSession(user, env);
 
         return json({ user, token }, 201);
       }
 
+      // ВХОД
       if (path === "/api/login" && method === "POST") {
         const body = await request.json();
         const email = String(body.email || "").trim().toLowerCase();
         const password = String(body.password || "");
 
         const user = await env.DB.prepare(`
-          SELECT id, email, password_hash
+          SELECT id, email, password_hash, role
           FROM users
           WHERE email = ?
         `).bind(email).first();
@@ -247,19 +208,21 @@ export default {
           return json({ error: "Неверный email или пароль" }, 401);
         }
 
-        user.role = effectiveRole(user, env);
+        const adminEmail = String(env.ADMIN_EMAIL || "").trim().toLowerCase();
+
+        if (adminEmail && user.email.toLowerCase() === adminEmail) {
+          user.role = "admin";
+        }
+
         const token = await createSession(user, env);
 
         return json({
-          user: {
-            id: user.id,
-            email: user.email,
-            role: user.role
-          },
+          user: { id: user.id, email: user.email, role: user.role },
           token
         });
       }
 
+      // ТЕКУЩИЙ ПОЛЬЗОВАТЕЛЬ
       if (path === "/api/me" && method === "GET") {
         const user = await getUser(request, env);
 
@@ -290,7 +253,7 @@ export default {
           return json({ error: "Разрешены только HTTP и HTTPS ссылки" }, 400);
         }
 
-        if (!validNumber(price, 0.01)) {
+        if (!Number.isFinite(price) || price <= 0 || price > 100000000) {
           return json({ error: "Укажи корректную цену товара в юанях" }, 400);
         }
 
@@ -306,7 +269,7 @@ export default {
         }, 201);
       }
 
-      // ЗАЯВКИ ПОКУПАТЕЛЯ
+      // СПИСОК ЗАЯВОК ПОКУПАТЕЛЯ
       if (path === "/api/orders" && method === "GET") {
         const user = await getUser(request, env);
 
@@ -323,19 +286,22 @@ export default {
         return json({ orders: orders.results });
       }
 
-      // ВСЕ ЗАЯВКИ — ТОЛЬКО АДМИНИСТРАТОР
+      // ВСЕ ЗАЯВКИ ДЛЯ АДМИНИСТРАТОРА
       if (path === "/api/admin/orders" && method === "GET") {
         const auth = await requireAdmin(request, env);
         if (auth.error) return auth.error;
 
         const orders = await env.DB.prepare(`
-          SELECT orders.id, orders.user_id, users.email,
-                 orders.product_url, orders.product_price_cny,
-                 orders.weight_kg, orders.delivery_price_per_kg,
-                 orders.exchange_rate, orders.insurance,
-                 orders.commission, orders.extra_costs,
-                 orders.markup, orders.total_price_rub,
-                 orders.status, orders.created_at
+          SELECT
+            orders.id,
+            orders.user_id,
+            users.email,
+            orders.product_url,
+            orders.product_price_cny,
+            orders.weight_kg,
+            orders.total_price_rub,
+            orders.status,
+            orders.created_at
           FROM orders
           JOIN users ON users.id = orders.user_id
           ORDER BY orders.id DESC
@@ -344,15 +310,27 @@ export default {
         return json({ orders: orders.results });
       }
 
-      // НАСТРОЙКИ ТАРИФОВ — ТОЛЬКО АДМИНИСТРАТОР
+      // ПОЛУЧЕНИЕ ТАРИФОВ
       if (path === "/api/admin/settings" && method === "GET") {
         const auth = await requireAdmin(request, env);
         if (auth.error) return auth.error;
 
-        const settings = await getSettings(env);
+        const settings = await env.DB.prepare(`
+          SELECT exchange_rate, delivery_price_per_kg,
+                 insurance_percent, commission_percent,
+                 extra_costs, markup_percent
+          FROM settings
+          WHERE id = 1
+        `).first();
+
+        if (!settings) {
+          return json({ error: "Настройки тарифов не найдены" }, 500);
+        }
+
         return json({ settings });
       }
 
+      // СОХРАНЕНИЕ ТАРИФОВ
       if (path === "/api/admin/settings" && method === "PUT") {
         const auth = await requireAdmin(request, env);
         if (auth.error) return auth.error;
@@ -368,13 +346,13 @@ export default {
           "markup_percent"
         ];
 
-        for (const field of fields) {
-          if (!validNumber(body[field], 0, 100000000)) {
-            return json({ error: `Некорректное значение: ${field}` }, 400);
-          }
+        const values = fields.map(field => Number(body[field]));
+
+        if (values.some(value => !validNonNegative(value))) {
+          return json({ error: "Проверьте значения тарифов" }, 400);
         }
 
-        if (Number(body.exchange_rate) <= 0) {
+        if (values[0] <= 0) {
           return json({ error: "Курс юаня должен быть больше нуля" }, 400);
         }
 
@@ -387,30 +365,25 @@ export default {
               extra_costs = ?,
               markup_percent = ?
           WHERE id = 1
-        `).bind(
-          Number(body.exchange_rate),
-          Number(body.delivery_price_per_kg),
-          Number(body.insurance_percent),
-          Number(body.commission_percent),
-          Number(body.extra_costs),
-          Number(body.markup_percent)
-        ).run();
+        `).bind(...values).run();
 
-        return json({
-          message: "Настройки сохранены",
-          settings: await getSettings(env)
-        });
+        return json({ message: "Тарифы сохранены" });
       }
 
-      // ПРОВЕРКА ТОВАРА И РАСЧЁТ — ТОЛЬКО АДМИНИСТРАТОР
-      const adminOrderMatch = path.match(/^\/api\/admin\/orders\/(\d+)$/);
+      // РАСЧЁТ ЗАЯВКИ ПО ВЕСУ
+      const orderMatch = path.match(/^\/api\/admin\/orders\/(\d+)$/);
 
-      if (adminOrderMatch && method === "PATCH") {
+      if (orderMatch && method === "PATCH") {
         const auth = await requireAdmin(request, env);
         if (auth.error) return auth.error;
 
-        const orderId = Number(adminOrderMatch[1]);
+        const orderId = Number(orderMatch[1]);
         const body = await request.json();
+        const weight = Number(body.weight_kg);
+
+        if (!Number.isFinite(weight) || weight <= 0 || weight > 100000) {
+          return json({ error: "Укажите корректный вес товара в килограммах" }, 400);
+        }
 
         const order = await env.DB.prepare(`
           SELECT id, product_price_cny
@@ -418,47 +391,46 @@ export default {
           WHERE id = ?
         `).bind(orderId).first();
 
-        if (!order) return json({ error: "Заявка не найдена" }, 404);
-
-        const allowedStatuses = [
-          "new", "checking", "calculated",
-          "paid", "purchased", "shipped",
-          "completed", "cancelled"
-        ];
-
-        let status = body.status;
-
-        if (status !== undefined && !allowedStatuses.includes(status)) {
-          return json({ error: "Недопустимый статус заявки" }, 400);
+        if (!order) {
+          return json({ error: "Заявка не найдена" }, 404);
         }
 
-        if (body.weight_kg === undefined) {
-          if (!status) {
-            return json({ error: "Укажи вес товара или статус" }, 400);
-          }
-
-          await env.DB.prepare(`
-            UPDATE orders SET status = ? WHERE id = ?
-          `).bind(status, orderId).run();
-
-          return json({ message: "Статус обновлён", status });
-        }
-
-        if (!validNumber(body.weight_kg, 0.001, 100000)) {
-          return json({ error: "Укажи корректный вес в килограммах" }, 400);
-        }
-
-        const settings = await getSettings(env);
+        const settings = await env.DB.prepare(`
+          SELECT exchange_rate, delivery_price_per_kg,
+                 insurance_percent, commission_percent,
+                 extra_costs, markup_percent
+          FROM settings
+          WHERE id = 1
+        `).first();
 
         if (!settings) {
           return json({ error: "Настройки тарифов не найдены" }, 500);
         }
 
-        const calculation = calculateOrder(
-          order,
-          settings,
-          Number(body.weight_kg)
-        );
+        const productRub = Number(order.product_price_cny) *
+          Number(settings.exchange_rate);
+
+        const deliveryRub = weight *
+          Number(settings.delivery_price_per_kg);
+
+        const insuranceRub = productRub *
+          Number(settings.insurance_percent) / 100;
+
+        const commissionRub = productRub *
+          Number(settings.commission_percent) / 100;
+
+        const extraCostsRub = Number(settings.extra_costs);
+
+        const subtotal = productRub +
+          deliveryRub +
+          insuranceRub +
+          commissionRub +
+          extraCostsRub;
+
+        const markupRub = subtotal *
+          Number(settings.markup_percent) / 100;
+
+        const total = Math.round((subtotal + markupRub) * 100) / 100;
 
         await env.DB.prepare(`
           UPDATE orders
@@ -470,26 +442,31 @@ export default {
               extra_costs = ?,
               markup = ?,
               total_price_rub = ?,
-              status = ?
+              status = 'calculated'
           WHERE id = ?
         `).bind(
-          calculation.weight_kg,
-          calculation.delivery_price_per_kg,
-          calculation.exchange_rate,
-          calculation.insurance,
-          calculation.commission,
-          calculation.extra_costs,
-          calculation.markup,
-          calculation.total_price_rub,
-          status || "calculated",
+          weight,
+          settings.delivery_price_per_kg,
+          settings.exchange_rate,
+          insuranceRub,
+          commissionRub,
+          extraCostsRub,
+          markupRub,
+          total,
           orderId
         ).run();
 
         return json({
-          message: "Расчёт сохранён",
-          order_id: orderId,
-          calculation,
-          status: status || "calculated"
+          message: "Расчёт выполнен",
+          calculation: {
+            product_rub: productRub,
+            delivery_rub: deliveryRub,
+            insurance_rub: insuranceRub,
+            commission_rub: commissionRub,
+            extra_costs_rub: extraCostsRub,
+            markup_rub: markupRub,
+            total_price_rub: total
+          }
         });
       }
 
