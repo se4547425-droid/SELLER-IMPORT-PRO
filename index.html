@@ -1,163 +1,104 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0b1020">
-  <title>SELLER IMPORT PRO</title>
+  <title>SELLER IMPORT PRO — Заказы из Китая</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<aside>
-  <div class="brand"><b>S</b><span>SELLER IMPORT<br><small>PRO WORKSPACE</small></span></div>
-  <nav>
-    <button class="active" data-view="home">Обзор</button>
-    <button data-view="import">Импорт из Китая</button>
-    <button data-view="profit">Прибыль товара</button>
-    <button data-view="market">Аналитика WB/Ozon</button>
-  </nav>
-  <p class="sidefoot">Бесплатная версия · MVP</p>
-</aside>
-
-<main>
-<header>
-  <span>Рабочее пространство / <b id="crumb">Обзор</b></span>
-  <span class="ready">● Система готова</span>
-</header>
-
-<section id="home" class="view active">
-  <div class="hero">
-    <small>ВАШ БИЗНЕС ПОД КОНТРОЛЕМ</small>
-    <h1>Считайте точнее.<br><em>Зарабатывайте больше.</em></h1>
-    <p>Инструменты для расчёта импорта, прибыльности и сравнения товаров для маркетплейсов.</p>
-  </div>
-  <h2>С чего начнём?</h2>
-  <div class="cards">
-    <button data-go="import"><i>⇩</i><small>КАЛЬКУЛЯТОР</small><h3>Импорт из Китая</h3><p>Полная стоимость партии и себестоимость одной единицы.</p><b>Открыть калькулятор →</b></button>
-    <button data-go="profit"><i>⌁</i><small>КАЛЬКУЛЯТОР</small><h3>Прибыль товара</h3><p>Комиссии, логистика, реклама, налоги и чистая прибыль.</p><b>Открыть калькулятор →</b></button>
-    <button data-go="market"><i>◈</i><small>АНАЛИТИКА</small><h3>WB и Ozon</h3><p>Добавляйте товары вручную, сравнивайте экономику и прибыль.</p><b>Открыть аналитику →</b></button>
-  </div>
-  <p class="notice">ⓘ Аналитика в этой версии основана на данных, которые вы вводите вручную. Автоматическая статистика маркетплейсов пока не подключена.</p>
-</section>
-
-<section id="import" class="view">
-  <small class="kicker">КАЛЬКУЛЯТОР · КИТАЙ → РОССИЯ</small>
-  <h1>Расчёт импорта</h1>
-  <p>Введите параметры закупки и расходы для всей партии.</p>
-  <div class="layout">
-    <div class="panel">
-      <h2>Параметры закупки</h2>
-      <div class="fields">
-        <label>Количество единиц<input id="qty" type="number" value="100" min="1"></label>
-        <label>Цена за единицу, CNY<input id="cny" type="number" value="35" min="0" step=".01"></label>
-        <label>Курс юаня, ₽<input id="rate" type="number" value="12.5" min=".01" step=".01"></label>
-        <label>Доставка, ₽<input id="ship" type="number" value="12000" min="0"></label>
-        <label>Страховка, ₽<input id="ins" type="number" value="1000" min="0"></label>
-        <label>Таможенные платежи, ₽<input id="customs" type="number" value="5000" min="0"></label>
-        <label>Прочие расходы, ₽<input id="impOther" type="number" value="0" min="0"></label>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" data-page="home">
+        <span class="brand-mark">S</span>
+        <span>SELLER <b>IMPORT PRO</b><small>ЗАКАЗЫ ИЗ КИТАЯ</small></span>
+      </a>
+      <nav class="nav">
+        <button class="nav-link active" data-page="home"><span>⌂</span> Главная</button>
+        <button class="nav-link" data-page="request"><span>＋</span> Рассчитать заказ</button>
+        <button class="nav-link" data-page="account"><span>▤</span> Мои заявки</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="help-card"><b>Нужна помощь?</b><p>Оставьте заявку — мы проверим товар и подготовим расчёт.</p></div>
+        <button class="nav-link" data-page="login"><span>↪</span> Войти в аккаунт</button>
       </div>
-      <button class="primary" id="doImport">Рассчитать себестоимость →</button>
-    </div>
-    <div class="result">
-      <small>РЕЗУЛЬТАТ РАСЧЁТА</small>
-      <p>Себестоимость одной единицы</p><strong id="unit">— ₽</strong><hr>
-      <p>Стоимость товара <b id="goods">—</b></p>
-      <p>Дополнительные расходы <b id="extras">—</b></p>
-      <p class="total">Итого за партию <b id="total">—</b></p>
-      <small class="hint">Проверьте курс валют, таможенные платежи и условия перевозчика.</small>
-    </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><span class="eyebrow">СЕРВИС ЗАКАЗОВ ИЗ КИТАЯ</span><h1 id="page-title">Главная</h1></div>
+        <div class="top-actions"><span class="secure-label">Персональный кабинет</span><button class="button button-outline" data-page="login">Войти</button></div>
+      </header>
+
+      <section class="page active" id="page-home">
+        <div class="hero">
+          <div class="hero-copy">
+            <span class="pill">ПОКУПКИ ИЗ КИТАЯ ПРОЩЕ</span>
+            <h2>Нашли товар в Китае?<br><em>Узнайте его цену</em></h2>
+            <p>Отправьте ссылку на товар. Мы проверим его, уточним вес и рассчитаем итоговую стоимость с доставкой.</p>
+            <button class="button button-primary" data-page="request">Рассчитать стоимость <span>→</span></button>
+            <div class="hero-note"><span class="live-dot"></span> Расчёт подготовит поставщик после проверки товара</div>
+          </div>
+          <div class="hero-art">
+            <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+            <div class="package"><div class="package-tape"></div><div class="package-logo">SIP</div><div class="package-line"></div><div class="package-line short"></div></div>
+            <div class="floating-tag tag-top">CHINA → YOUR CITY</div>
+            <div class="floating-tag tag-bottom">ДОСТАВКА • РАСЧЁТ • ЗАКАЗ</div>
+          </div>
+        </div>
+        <div class="section-heading"><div><span class="eyebrow">КАК ЭТО РАБОТАЕТ</span><h2>Всего три шага</h2></div></div>
+        <div class="steps-grid">
+          <article class="step-card"><span class="step-number">01</span><div class="step-icon">↗</div><h3>Отправьте ссылку</h3><p>Вставьте ссылку на товар и укажите его цену в юанях.</p></article>
+          <article class="step-card"><span class="step-number">02</span><div class="step-icon">⌕</div><h3>Мы проверим товар</h3><p>Поставщик проверит ссылку, уточнит вес и подготовит расчёт.</p></article>
+          <article class="step-card"><span class="step-number">03</span><div class="step-icon">₽</div><h3>Получите итоговую цену</h3><p>Готовая стоимость появится в вашем личном кабинете.</p></article>
+        </div>
+        <div class="bottom-cta"><div><span class="eyebrow">ГОТОВЫ НАЧАТЬ?</span><h2>Отправьте первый товар на расчёт</h2></div><button class="button button-primary" data-page="request">Создать заявку →</button></div>
+      </section>
+
+      <section class="page" id="page-request">
+        <div class="content-card request-card">
+          <div class="card-heading"><span class="eyebrow">НОВАЯ ЗАЯВКА</span><h2>Рассчитать стоимость товара</h2><p>Укажите ссылку и цену товара. Вес и доставку мы уточним самостоятельно.</p></div>
+          <form id="request-form">
+            <label for="product-url">Ссылка на товар в китайском магазине</label>
+            <input id="product-url" type="url" placeholder="https://..." required>
+            <div class="field-grid">
+              <div><label for="product-price">Цена товара</label><div class="input-with-suffix"><input id="product-price" type="number" min="0.01" step="0.01" placeholder="300" required><span>¥ CNY</span></div></div>
+              <div><label for="product-title">Название товара <small>(необязательно)</small></label><input id="product-title" type="text" placeholder="Например, кофта"></div>
+            </div>
+            <label for="request-comment">Комментарий <small>(необязательно)</small></label>
+            <textarea id="request-comment" rows="3" placeholder="Цвет, размер, количество и другие пожелания"></textarea>
+            <div class="notice"><span>i</span><p>После отправки заявки поставщик проверит товар и укажет вес. Итоговая цена появится в личном кабинете после расчёта.</p></div>
+            <button class="button button-primary button-wide" type="submit">Отправить заявку <span>→</span></button>
+            <p class="form-message" id="request-message" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="page" id="page-account">
+        <div class="empty-state content-card"><div class="empty-icon">▤</div><h2>Ваши заявки будут здесь</h2><p>Войдите в аккаунт, чтобы отслеживать проверку товаров и смотреть готовые расчёты.</p><button class="button button-primary" data-page="login">Войти в аккаунт</button></div>
+      </section>
+
+      <section class="page" id="page-login">
+        <div class="auth-wrap">
+          <div class="auth-aside"><span class="brand-mark">S</span><span class="eyebrow">SELLER IMPORT PRO</span><h2>Ваши заказы<br>в одном месте</h2><p>Отслеживайте заявки и получайте итоговую стоимость товаров из Китая.</p></div>
+          <div class="content-card auth-card"><span class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span><h2>Вход в аккаунт</h2><p>Форма интерфейса. Подключение безопасной регистрации будет следующим этапом.</p>
+            <form id="login-form"><label for="login-email">Электронная почта</label><input id="login-email" type="email" placeholder="name@example.com" required><label for="login-password">Пароль</label><input id="login-password" type="password" placeholder="Введите пароль" required><button class="button button-primary button-wide" type="submit">Войти</button><p class="form-message" id="login-message"></p></form>
+            <p class="auth-switch">Нет аккаунта? <button type="button" class="text-button" data-page="register">Создать аккаунт</button></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="page-register">
+        <div class="content-card auth-card register-card"><span class="eyebrow">НОВЫЙ АККАУНТ</span><h2>Регистрация</h2><p>Создайте аккаунт, чтобы сохранять заявки и получать расчёты.</p>
+          <form id="register-form"><label for="register-name">Ваше имя</label><input id="register-name" type="text" placeholder="Имя" required><label for="register-email">Электронная почта</label><input id="register-email" type="email" placeholder="name@example.com" required><label for="register-password">Пароль</label><input id="register-password" type="password" minlength="8" placeholder="Не менее 8 символов" required><button class="button button-primary button-wide" type="submit">Создать аккаунт</button><p class="form-message" id="register-message"></p></form>
+          <p class="auth-switch">Уже есть аккаунт? <button type="button" class="text-button" data-page="login">Войти</button></p>
+        </div>
+      </section>
+
+      <footer class="footer"><span>© 2026 SELLER IMPORT PRO</span><span>Расчёт стоимости товаров из Китая</span></footer>
+    </main>
   </div>
-</section>
-
-<section id="profit" class="view">
-  <small class="kicker">КАЛЬКУЛЯТОР · UNIT-ЭКОНОМИКА</small>
-  <h1>Прибыль товара</h1>
-  <p>Рассчитайте ориентировочную прибыль с одной продажи.</p>
-  <div class="layout">
-    <div class="panel">
-      <h2>Цена и расходы</h2>
-      <div class="fields">
-        <label>Цена продажи, ₽<input id="sale" type="number" value="1990" min="0"></label>
-        <label>Себестоимость, ₽<input id="cost" type="number" value="650" min="0"></label>
-        <label>Комиссия маркетплейса, %<input id="commission" type="number" value="15" min="0" max="100" step=".1"></label>
-        <label>Логистика, ₽<input id="logistics" type="number" value="80" min="0"></label>
-        <label>Реклама, ₽<input id="ads" type="number" value="100" min="0"></label>
-        <label>Налог, %<input id="tax" type="number" value="6" min="0" max="100" step=".1"></label>
-        <label>Прочие расходы, ₽<input id="other" type="number" value="0" min="0"></label>
-      </div>
-      <button class="primary" id="doProfit">Рассчитать прибыль →</button>
-    </div>
-    <div class="result">
-      <small>РЕЗУЛЬТАТ РАСЧЁТА</small>
-      <p>Прибыль с одной продажи</p><strong id="net">— ₽</strong>
-      <p id="status">После вычета указанных расходов</p><hr>
-      <p>Комиссия <b id="commRub">—</b></p>
-      <p>Налог <b id="taxRub">—</b></p>
-      <p>Все расходы <b id="expenses">—</b></p>
-      <p class="total">Маржинальность <b id="margin">—</b></p>
-      <small class="hint">Тарифы зависят от категории и схемы работы. Проверяйте их в кабинете продавца.</small>
-    </div>
-  </div>
-</section>
-
-<section id="market" class="view">
-  <small class="kicker">АНАЛИТИКА · РУЧНОЙ ВВОД ДАННЫХ</small>
-  <h1>Аналитика WB и Ozon</h1>
-  <p>Добавляйте товары и сравнивайте их расчётную экономику в одном месте.</p>
-
-  <div class="market-note">
-    <b>Важно:</b> это ручной калькулятор сравнения, а не статистика продаж маркетплейсов.
-    Введите цены, расходы и ожидаемое количество продаж самостоятельно.
-  </div>
-
-  <div class="panel market-form">
-    <h2 id="marketFormTitle">Добавить товар</h2>
-    <div class="fields market-fields">
-      <label>Маркетплейс
-        <select id="mPlatform"><option value="Wildberries">Wildberries</option><option value="Ozon">Ozon</option></select>
-      </label>
-      <label>Название товара<input id="mName" type="text" maxlength="100" placeholder="Например, беспроводные наушники"></label>
-      <label>Артикул / заметка<input id="mArticle" type="text" maxlength="60" placeholder="Артикул или свой код"></label>
-      <label>Цена продажи, ₽<input id="mPrice" type="number" min="0.01" step=".01" placeholder="1990"></label>
-      <label>Себестоимость, ₽<input id="mCost" type="number" min="0" step=".01" placeholder="650"></label>
-      <label>Комиссия, %<input id="mCommission" type="number" min="0" max="100" step=".1" value="15"></label>
-      <label>Логистика на единицу, ₽<input id="mLogistics" type="number" min="0" step=".01" value="80"></label>
-      <label>Реклама на единицу, ₽<input id="mAds" type="number" min="0" step=".01" value="100"></label>
-      <label>Налог, %<input id="mTax" type="number" min="0" max="100" step=".1" value="6"></label>
-      <label>Прочие расходы на единицу, ₽<input id="mOther" type="number" min="0" step=".01" value="0"></label>
-      <label>Ожидаемые продажи в месяц, шт.<input id="mSales" type="number" min="0" step="1" value="30"></label>
-    </div>
-    <div class="form-actions">
-      <button class="primary" id="saveMarketProduct">Добавить товар в сравнение →</button>
-      <button class="secondary hidden" id="cancelMarketEdit" type="button">Отменить редактирование</button>
-    </div>
-  </div>
-
-  <div class="market-summary" id="marketSummary">
-    <div class="summary-card"><small>ТОВАРОВ В СПИСКЕ</small><strong id="mCount">0</strong></div>
-    <div class="summary-card"><small>СУММАРНАЯ ОЖИДАЕМАЯ ВЫРУЧКА / МЕС.</small><strong id="mRevenue">0 ₽</strong></div>
-    <div class="summary-card"><small>СУММАРНАЯ ОЖИДАЕМАЯ ПРИБЫЛЬ / МЕС.</small><strong id="mProfit">0 ₽</strong></div>
-  </div>
-
-  <div class="panel table-panel">
-    <div class="table-heading">
-      <div><h2>Сравнение товаров</h2><p>Результаты основаны на введённых вами предположениях.</p></div>
-      <button class="secondary" id="exportMarket">Экспорт CSV</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th>Товар</th><th>Площадка</th><th>Цена</th><th>Прибыль / шт.</th><th>Маржа</th><th>Продажи / мес.</th><th>Прибыль / мес.</th><th>Действия</th>
-        </tr></thead>
-        <tbody id="marketRows"><tr><td colspan="8" class="empty-row">Пока нет товаров. Добавьте первый товар выше.</td></tr></tbody>
-      </table>
-    </div>
-    <p class="table-foot">Расчёт не учитывает возвраты, хранение, штрафы, скидки, изменения тарифов и другие расходы, если вы не внесли их в соответствующие поля.</p>
-  </div>
-</section>
-
-<footer>© 2026 SELLER IMPORT PRO <span>Предварительные расчёты</span></footer>
-</main>
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
