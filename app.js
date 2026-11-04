@@ -209,7 +209,7 @@ document.getElementById('doProfit').onclick = (event) => {
   document.getElementById('expenses').textContent = money(expenses);
   document.getElementById('margin').textContent =
     margin.toFixed(1) + '%';
-
+ 
   if (event.isTrusted) {
     saveHistory({
       type: 'profit',
