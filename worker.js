@@ -1,4 +1,3 @@
-
 const json = (data, status = 200) =>
   Response.json(data, {
     status,
@@ -130,6 +129,57 @@ function validNonNegative(value) {
   return Number.isFinite(value) && value >= 0;
 }
 
+// НАЗВАНИЯ СТАТУСОВ
+function statusName(status) {
+  const names = {
+    new: "Новая заявка",
+    calculated: "Ожидает подтверждения",
+    confirmed: "Подтверждён",
+    purchased: "Выкуплен в Китае",
+    in_transit: "В пути",
+    arrived: "Прибыл на склад",
+    shipped: "Отправлен покупателю",
+    delivered: "Доставлен"
+  };
+
+  return names[status] || status;
+}
+
+// СОЗДАНИЕ УВЕДОМЛЕНИЯ
+async function createNotification(
+  env,
+  userId,
+  orderId,
+  title,
+  message
+) {
+  if (!userId) return;
+
+  await env.DB.prepare(`
+    INSERT INTO notifications
+      (user_id, order_id, title, message)
+    VALUES (?, ?, ?, ?)
+  `).bind(
+    userId,
+    orderId || null,
+    title,
+    message
+  ).run();
+}
+
+// ПОЛУЧЕНИЕ ID ПОСТАВЩИКА
+async function getAdminUser(env) {
+  const adminEmail = String(env.ADMIN_EMAIL || "").trim().toLowerCase();
+
+  if (!adminEmail) return null;
+
+  return await env.DB.prepare(`
+    SELECT id, email
+    FROM users
+    WHERE LOWER(email) = ?
+  `).bind(adminEmail).first();
+}
+
 // ЗАПИСЬ ИСТОРИИ СТАТУСОВ
 async function saveStatusHistory(
   env,
@@ -157,6 +207,7 @@ export default {
     const method = request.method;
 
     try {
+      // ПРОВЕРКА СЕРВЕРА
       if (path === "/api/health" && method === "GET") {
         const result = await env.DB
           .prepare("SELECT 1 AS connected")
@@ -179,7 +230,9 @@ export default {
         }
 
         if (password.length < 8 || password.length > 128) {
-          return json({ error: "Пароль должен содержать от 8 до 128 символов" }, 400);
+          return json({
+            error: "Пароль должен содержать от 8 до 128 символов"
+          }, 400);
         }
 
         const existing = await env.DB.prepare(
@@ -187,7 +240,9 @@ export default {
         ).bind(email).first();
 
         if (existing) {
-          return json({ error: "Этот email уже зарегистрирован" }, 409);
+          return json({
+            error: "Этот email уже зарегистрирован"
+          }, 409);
         }
 
         const passwordHash = await createPasswordHash(password);
@@ -204,7 +259,10 @@ export default {
         };
 
         const adminEmail = String(env.ADMIN_EMAIL || "").trim().toLowerCase();
-        if (adminEmail && email === adminEmail) user.role = "admin";
+
+        if (adminEmail && email === adminEmail) {
+          user.role = "admin";
+        }
 
         const token = await createSession(user, env);
 
@@ -224,7 +282,9 @@ export default {
         `).bind(email).first();
 
         if (!user || !(await verifyPassword(password, user.password_hash))) {
-          return json({ error: "Неверный email или пароль" }, 401);
+          return json({
+            error: "Неверный email или пароль"
+          }, 401);
         }
 
         const adminEmail = String(env.ADMIN_EMAIL || "").trim().toLowerCase();
@@ -236,7 +296,11 @@ export default {
         const token = await createSession(user, env);
 
         return json({
-          user: { id: user.id, email: user.email, role: user.role },
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role
+          },
           token
         });
       }
@@ -265,15 +329,21 @@ export default {
         try {
           parsedUrl = new URL(productUrl);
         } catch {
-          return json({ error: "Некорректная ссылка на товар" }, 400);
+          return json({
+            error: "Некорректная ссылка на товар"
+          }, 400);
         }
 
         if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-          return json({ error: "Разрешены только HTTP и HTTPS ссылки" }, 400);
+          return json({
+            error: "Разрешены только HTTP и HTTPS ссылки"
+          }, 400);
         }
 
         if (!Number.isFinite(price) || price <= 0 || price > 100000000) {
-          return json({ error: "Укажи корректную цену товара в юанях" }, 400);
+          return json({
+            error: "Укажи корректную цену товара в юанях"
+          }, 400);
         }
 
         const result = await env.DB.prepare(`
@@ -291,6 +361,19 @@ export default {
           user.email
         );
 
+        // УВЕДОМЛЕНИЕ ПОСТАВЩИКУ
+        const admin = await getAdminUser(env);
+
+        if (admin) {
+          await createNotification(
+            env,
+            admin.id,
+            orderId,
+            "Новая заявка",
+            `Покупатель ${user.email} создал заявку №${orderId}.`
+          );
+        }
+
         return json({
           message: "Заявка создана",
           order_id: orderId,
@@ -298,8 +381,80 @@ export default {
         }, 201);
       }
 
+      // ПОЛУЧЕНИЕ УВЕДОМЛЕНИЙ
+      if (path === "/api/notifications" && method === "GET") {
+        const user = await getUser(request, env);
+
+        if (!user) return json({ error: "Требуется вход" }, 401);
+
+        const result = await env.DB.prepare(`
+          SELECT id, order_id, title, message, is_read, created_at
+          FROM notifications
+          WHERE user_id = ?
+          ORDER BY id DESC
+          LIMIT 100
+        `).bind(user.id).all();
+
+        const unread = await env.DB.prepare(`
+          SELECT COUNT(*) AS count
+          FROM notifications
+          WHERE user_id = ? AND is_read = 0
+        `).bind(user.id).first();
+
+        return json({
+          notifications: result.results,
+          unread_count: unread?.count || 0
+        });
+      }
+
+      // ОТМЕТИТЬ ОДНО УВЕДОМЛЕНИЕ ПРОЧИТАННЫМ
+      const notificationReadMatch = path.match(
+        /^\/api\/notifications\/(\d+)\/read$/
+      );
+
+      if (notificationReadMatch && method === "PATCH") {
+        const user = await getUser(request, env);
+
+        if (!user) return json({ error: "Требуется вход" }, 401);
+
+        const notificationId = Number(notificationReadMatch[1]);
+
+        const result = await env.DB.prepare(`
+          UPDATE notifications
+          SET is_read = 1
+          WHERE id = ? AND user_id = ?
+        `).bind(notificationId, user.id).run();
+
+        if (!result.meta.changes) {
+          return json({
+            error: "Уведомление не найдено"
+          }, 404);
+        }
+
+        return json({ message: "Уведомление прочитано" });
+      }
+
+      // ОТМЕТИТЬ ВСЕ УВЕДОМЛЕНИЯ ПРОЧИТАННЫМИ
+      if (path === "/api/notifications/read-all" && method === "PATCH") {
+        const user = await getUser(request, env);
+
+        if (!user) return json({ error: "Требуется вход" }, 401);
+
+        await env.DB.prepare(`
+          UPDATE notifications
+          SET is_read = 1
+          WHERE user_id = ? AND is_read = 0
+        `).bind(user.id).run();
+
+        return json({
+          message: "Все уведомления прочитаны"
+        });
+      }
+
       // ПОДТВЕРЖДЕНИЕ ЗАКАЗА ПОКУПАТЕЛЕМ
-      const confirmMatch = path.match(/^\/api\/orders\/(\d+)\/confirm$/);
+      const confirmMatch = path.match(
+        /^\/api\/orders\/(\d+)\/confirm$/
+      );
 
       if (confirmMatch && method === "POST") {
         const user = await getUser(request, env);
@@ -343,6 +498,19 @@ export default {
           "confirmed",
           user.email
         );
+
+        // УВЕДОМЛЕНИЕ ПОСТАВЩИКУ
+        const admin = await getAdminUser(env);
+
+        if (admin) {
+          await createNotification(
+            env,
+            admin.id,
+            orderId,
+            "Заказ подтверждён",
+            `Покупатель подтвердил заявку №${orderId}. Можно приступать к выкупу товара.`
+          );
+        }
 
         return json({
           message: "Заказ подтверждён",
@@ -455,7 +623,7 @@ export default {
         };
 
         const order = await env.DB.prepare(`
-          SELECT id, status
+          SELECT id, user_id, status
           FROM orders
           WHERE id = ?
         `).bind(orderId).first();
@@ -492,6 +660,15 @@ export default {
           auth.user.email
         );
 
+        // УВЕДОМЛЕНИЕ ПОКУПАТЕЛЮ
+        await createNotification(
+          env,
+          order.user_id,
+          orderId,
+          "Изменился статус заказа",
+          `Статус вашей заявки №${orderId} изменён: ${statusName(newStatus)}.`
+        );
+
         return json({
           message: "Статус заказа обновлён",
           order_id: orderId,
@@ -513,7 +690,9 @@ export default {
         `).first();
 
         if (!settings) {
-          return json({ error: "Настройки тарифов не найдены" }, 500);
+          return json({
+            error: "Настройки тарифов не найдены"
+          }, 500);
         }
 
         return json({ settings });
@@ -527,19 +706,26 @@ export default {
         const body = await request.json();
 
         const fields = [
-          "exchange_rate", "delivery_price_per_kg",
-          "insurance_percent", "commission_percent",
-          "extra_costs", "markup_percent"
+          "exchange_rate",
+          "delivery_price_per_kg",
+          "insurance_percent",
+          "commission_percent",
+          "extra_costs",
+          "markup_percent"
         ];
 
         const values = fields.map(field => Number(body[field]));
 
         if (values.some(value => !validNonNegative(value))) {
-          return json({ error: "Проверьте значения тарифов" }, 400);
+          return json({
+            error: "Проверьте значения тарифов"
+          }, 400);
         }
 
         if (values[0] <= 0) {
-          return json({ error: "Курс юаня должен быть больше нуля" }, 400);
+          return json({
+            error: "Курс юаня должен быть больше нуля"
+          }, 400);
         }
 
         await env.DB.prepare(`
@@ -557,7 +743,9 @@ export default {
       }
 
       // РАСЧЁТ ЗАЯВКИ ПО ВЕСУ
-      const orderMatch = path.match(/^\/api\/admin\/orders\/(\d+)$/);
+      const orderMatch = path.match(
+        /^\/api\/admin\/orders\/(\d+)$/
+      );
 
       if (orderMatch && method === "PATCH") {
         const auth = await requireAdmin(request, env);
@@ -568,16 +756,20 @@ export default {
         const weight = Number(body.weight_kg);
 
         if (!Number.isFinite(weight) || weight <= 0 || weight > 100000) {
-          return json({ error: "Укажите корректный вес товара в килограммах" }, 400);
+          return json({
+            error: "Укажите корректный вес товара в килограммах"
+          }, 400);
         }
 
         const order = await env.DB.prepare(`
-          SELECT id, product_price_cny, status
+          SELECT id, user_id, product_price_cny, status
           FROM orders
           WHERE id = ?
         `).bind(orderId).first();
 
-        if (!order) return json({ error: "Заявка не найдена" }, 404);
+        if (!order) {
+          return json({ error: "Заявка не найдена" }, 404);
+        }
 
         const settings = await env.DB.prepare(`
           SELECT exchange_rate, delivery_price_per_kg,
@@ -588,17 +780,23 @@ export default {
         `).first();
 
         if (!settings) {
-          return json({ error: "Настройки тарифов не найдены" }, 500);
+          return json({
+            error: "Настройки тарифов не найдены"
+          }, 500);
         }
 
         const productRub = Number(order.product_price_cny) *
           Number(settings.exchange_rate);
+
         const deliveryRub = weight *
           Number(settings.delivery_price_per_kg);
+
         const insuranceRub = productRub *
           Number(settings.insurance_percent) / 100;
+
         const commissionRub = productRub *
           Number(settings.commission_percent) / 100;
+
         const extraCostsRub = Number(settings.extra_costs);
 
         const subtotal = productRub + deliveryRub +
@@ -653,6 +851,15 @@ export default {
             "calculated",
             auth.user.email
           );
+
+          // УВЕДОМЛЕНИЕ ПОКУПАТЕЛЮ О РАСЧЁТЕ
+          await createNotification(
+            env,
+            order.user_id,
+            orderId,
+            "Стоимость заказа рассчитана",
+            `Для заявки №${orderId} рассчитана итоговая стоимость ${total.toLocaleString("ru-RU")} RUB. Проверьте заказ и подтвердите его в личном кабинете.`
+          );
         }
 
         return json({
@@ -686,14 +893,19 @@ export default {
       }
 
       if (path.startsWith("/api/")) {
-        return json({ error: "API endpoint not found" }, 404);
+        return json({
+          error: "API endpoint not found"
+        }, 404);
       }
 
       return env.ASSETS.fetch(request);
 
     } catch (error) {
       console.error("Worker error:", error);
-      return json({ error: "Внутренняя ошибка сервера" }, 500);
+
+      return json({
+        error: "Внутренняя ошибка сервера"
+      }, 500);
     }
   }
 };
