@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", () => {
   const API = "/api";
   let token = localStorage.getItem("sip_token") || "";
@@ -685,6 +684,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ФИЛЬТРАЦИЯ И СОРТИРОВКА ЗАЯВОК
+
   function filterAdminOrders() {
     const search = document
       .getElementById("orders-search")?.value
@@ -697,32 +697,53 @@ document.addEventListener("DOMContentLoaded", () => {
     const list = document.querySelector("#admin-orders-list");
     if (!list) return;
 
-    const cards = Array.from(list.querySelectorAll(".admin-order-card"));
+    const cards = Array.from(
+      list.querySelectorAll(".admin-order-card")
+    );
 
     cards.forEach(card => {
       const matchesSearch = (card.dataset.search || "").includes(search);
-      const matchesStatus = status === "all" || card.dataset.status === status;
+
+      const matchesStatus =
+        status === "all" || card.dataset.status === status;
 
       card.hidden = !(matchesSearch && matchesStatus);
     });
 
-    const sorted = cards.sort((a, b) => {
+    cards.sort((a, b) => {
+      const idA = Number(a.dataset.id) || 0;
+      const idB = Number(b.dataset.id) || 0;
+
+      const priceA = Number(a.dataset.total) || 0;
+      const priceB = Number(b.dataset.total) || 0;
+
+      const calculatedA = priceA > 0;
+      const calculatedB = priceB > 0;
+
       if (sort === "oldest") {
-        return Number(a.dataset.id) - Number(b.dataset.id);
+        return idA - idB;
       }
 
       if (sort === "price-high") {
-        return Number(b.dataset.total) - Number(a.dataset.total);
+        if (calculatedA !== calculatedB) {
+          return calculatedA ? -1 : 1;
+        }
+
+        return priceB - priceA;
       }
 
       if (sort === "price-low") {
-        return Number(a.dataset.total) - Number(b.dataset.total);
+        if (calculatedA !== calculatedB) {
+          return calculatedA ? -1 : 1;
+        }
+
+        return priceA - priceB;
       }
 
-      return Number(b.dataset.id) - Number(a.dataset.id);
+      return idB - idA;
     });
 
-    sorted.forEach(card => list.appendChild(card));
+    cards.forEach(card => list.appendChild(card));
 
     const visible = cards.filter(card => !card.hidden).length;
     const counter = document.getElementById("orders-filter-count");
@@ -747,7 +768,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  
   // КАБИНЕТ ПОСТАВЩИКА
 
   async function loadAdminPanel() {
@@ -947,7 +967,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
 
-      // Применяем фильтры после отображения карточек
       filterAdminOrders();
 
       await Promise.all([
