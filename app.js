@@ -40,7 +40,7 @@ document.querySelectorAll('[data-go]').forEach(b => {
   b.onclick = () => openPage(b.dataset.go);
 });
 
-// История расчётов
+// Работа с историей
 function getHistory() {
   try {
     return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
@@ -66,52 +66,6 @@ function saveHistory(item) {
   renderHistory();
 }
 
-function renderHistory() {
-  const container = document.getElementById('historyList');
-  if (!container) return;
-
-  container.replaceChildren();
-
-  const history = getHistory();
-
-  if (!history.length) {
-    container.textContent = 'История пока пуста. Выполните расчёт.';
-    return;
-  }
-
-  history.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'history-card';
-    card.style.cssText =
-      'padding:14px;margin:12px 0;border:1px solid #555;border-radius:12px';
-
-    const title = document.createElement('h3');
-    title.textContent = item.type === 'import'
-      ? 'Импорт из Китая'
-      : 'Расчёт прибыли';
-
-    const details = document.createElement('p');
-    details.textContent = item.details;
-
-    const result = document.createElement('p');
-    result.textContent = item.result;
-
-    const date = document.createElement('small');
-    date.textContent = item.date;
-
-    const remove = document.createElement('button');
-    remove.textContent = 'Удалить';
-    remove.onclick = () => {
-      const updated = getHistory().filter(x => x.id !== item.id);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-      renderHistory();
-    };
-
-    card.append(title, details, result, date, remove);
-    container.appendChild(card);
-  });
-}
-
 // Создание раздела истории
 const historySection = document.createElement('section');
 historySection.id = 'historySection';
@@ -120,6 +74,22 @@ historySection.style.cssText =
 
 const historyTitle = document.createElement('h2');
 historyTitle.textContent = 'История расчётов';
+
+const historyFilter = document.createElement('select');
+historyFilter.id = 'historyFilter';
+historyFilter.style.cssText =
+  'padding:10px;margin:10px 0;border-radius:8px';
+
+[
+  ['all', 'Все расчёты'],
+  ['import', 'Только импорт'],
+  ['profit', 'Только прибыль']
+].forEach(([value, text]) => {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = text;
+  historyFilter.appendChild(option);
+});
 
 const historyList = document.createElement('div');
 historyList.id = 'historyList';
@@ -134,11 +104,98 @@ clearButton.onclick = () => {
   }
 };
 
-historySection.append(historyTitle, historyList, clearButton);
+historyFilter.onchange = renderHistory;
+
+historySection.append(
+  historyTitle,
+  historyFilter,
+  historyList,
+  clearButton
+);
+
 document.body.appendChild(historySection);
 
+// Отображение истории
+function renderHistory() {
+  const container = document.getElementById('historyList');
+  if (!container) return;
+
+  container.replaceChildren();
+
+  const filter = historyFilter.value;
+  const history = getHistory().filter(item =>
+    filter === 'all' || item.type === filter
+  );
+
+  if (!history.length) {
+    container.textContent = 'История пока пуста.';
+    return;
+  }
+
+  history.forEach(item => {
+    const card = document.createElement('div');
+
+    card.style.cssText =
+      'padding:14px;margin:12px 0;border:1px solid #555;border-radius:12px';
+
+    const title = document.createElement('h3');
+    title.textContent = item.type === 'import'
+      ? 'Импорт из Китая'
+      : 'Расчёт прибыли';
+
+    const details = document.createElement('p');
+    details.textContent = item.details || '';
+
+    const result = document.createElement('p');
+    result.textContent = item.result || '';
+
+    const date = document.createElement('small');
+    date.textContent = item.date || '';
+
+    card.append(title, details, result, date);
+
+    // Повторное использование расчёта
+    if (item.data) {
+      const repeat = document.createElement('button');
+      repeat.textContent = 'Повторить расчёт';
+      repeat.style.marginRight = '8px';
+
+      repeat.onclick = () => {
+        const fields = item.type === 'import'
+          ? item.data
+          : item.data;
+
+        Object.entries(fields).forEach(([id, value]) => {
+          const input = document.getElementById(id);
+          if (input) input.value = value;
+        });
+
+        openPage(item.type);
+
+        alert(
+          'Данные загружены в калькулятор. Проверьте значения и нажмите кнопку расчёта.'
+        );
+      };
+
+      card.appendChild(repeat);
+    }
+
+    const remove = document.createElement('button');
+    remove.textContent = 'Удалить';
+
+    remove.onclick = () => {
+      const updated = getHistory().filter(x => x.id !== item.id);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+      renderHistory();
+    };
+
+    card.appendChild(remove);
+    container.appendChild(card);
+  });
+}
+
 // Калькулятор импорта
-document.getElementById('doImport').onclick = (event) => {
+document.getElementById('doImport').onclick = event => {
   const q = v('qty');
   const price = v('cny');
   const rate = v('rate');
@@ -164,13 +221,22 @@ document.getElementById('doImport').onclick = (event) => {
     saveHistory({
       type: 'import',
       details: `Количество: ${q} шт. Цена: ${price} CNY. Курс: ${rate}`,
-      result: `Себестоимость единицы: ${money(unit)}. Партия: ${money(total)}`
+      result: `Себестоимость единицы: ${money(unit)}. Партия: ${money(total)}`,
+      data: {
+        qty: q,
+        cny: price,
+        rate,
+        ship: v('ship'),
+        ins: v('ins'),
+        customs: v('customs'),
+        impOther: v('impOther')
+      }
     });
   }
 };
 
 // Калькулятор прибыли
-document.getElementById('doProfit').onclick = (event) => {
+document.getElementById('doProfit').onclick = event => {
   const p = v('sale');
   const c = v('cost');
   const com = v('commission');
@@ -209,12 +275,21 @@ document.getElementById('doProfit').onclick = (event) => {
   document.getElementById('expenses').textContent = money(expenses);
   document.getElementById('margin').textContent =
     margin.toFixed(1) + '%';
- 
+
   if (event.isTrusted) {
     saveHistory({
       type: 'profit',
       details: `Цена продажи: ${money(p)}. Себестоимость: ${money(c)}`,
-      result: `Прибыль: ${money(profit)}. Маржинальность: ${margin.toFixed(1)}%`
+      result: `Прибыль: ${money(profit)}. Маржинальность: ${margin.toFixed(1)}%`,
+      data: {
+        sale: p,
+        cost: c,
+        commission: com,
+        logistics: log,
+        ads,
+        tax,
+        other
+      }
     });
   }
 };
