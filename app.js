@@ -20,7 +20,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const response = await fetch(API + path, { ...options, headers });
+    const response = await fetch(API + path, {
+      ...options,
+      headers
+    });
+
     const data = await response.json();
 
     if (!response.ok) {
@@ -32,8 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;",
-      '"': "&quot;", "'": "&#039;"
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
     })[char]);
   }
 
@@ -51,10 +58,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const title = document.getElementById("page-title");
     if (title) {
-      title.textContent =
-        currentUser?.role === "admin" && name === "account"
-          ? "Кабинет поставщика"
-          : txt[name] || "SELLER IMPORT PRO";
+      title.textContent = currentUser?.role === "admin" && name === "account"
+        ? "Кабинет поставщика"
+        : txt[name] || "SELLER IMPORT PRO";
     }
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -63,6 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function message(id, text, error = false) {
     const element = document.getElementById(id);
     if (!element) return;
+
     element.textContent = text;
     element.style.color = error ? "#e05252" : "#35b88a";
   }
@@ -74,8 +81,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.querySelectorAll('[data-page="account"]').forEach(button => {
-      button.textContent =
-        currentUser?.role === "admin" ? "Кабинет поставщика" : "Мои заявки";
+      button.textContent = currentUser?.role === "admin"
+        ? "Кабинет поставщика"
+        : "Мои заявки";
     });
   }
 
@@ -86,41 +94,34 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function statusName(status) {
+    const names = {
+      new: "Новая заявка",
+      calculated: "Ожидает подтверждения",
+      confirmed: "Подтверждён",
+      purchased: "Выкуплен в Китае",
+      in_transit: "В пути",
+      arrived: "Прибыл на склад",
+      shipped: "Отправлен покупателю",
+      delivered: "Доставлен"
+    };
+
+    return names[status] || status;
+  }
+
   function calculationDetails(order) {
     if (order.total_price_rub == null) return "";
 
-    const rows = [
-      ["Стоимость товара", order.product_price_rub],
-      ["Доставка", order.delivery_cost_rub],
-      ["Страховка", order.insurance_cost_rub],
-      ["Комиссия", order.commission_cost_rub],
-      ["Дополнительные расходы", order.extra_costs_rub],
-      ["Наценка", order.markup_rub]
-    ];
-
     return `
-      <div class="calculation-details" style="
-        margin-top:16px;padding:16px;
-        background:rgba(255,255,255,0.04);
-        border:1px solid rgba(255,255,255,0.1);
-        border-radius:12px;">
-        <h4 style="margin:0 0 12px;">Расшифровка стоимости</h4>
-        ${rows.map(([label, value]) => `
-          <div style="
-            display:flex;justify-content:space-between;
-            gap:12px;margin:9px 0;">
-            <span>${label}</span>
-            <strong>${money(value)} RUB</strong>
-          </div>
-        `).join("")}
-        <div style="
-          display:flex;justify-content:space-between;
-          gap:12px;margin-top:14px;padding-top:14px;
-          border-top:1px solid rgba(255,255,255,0.15);
-          font-size:17px;">
-          <strong>Итого</strong>
-          <strong>${money(order.total_price_rub)} RUB</strong>
-        </div>
+      <div class="calculation-details">
+        <h4>Расшифровка стоимости</h4>
+        <p>Стоимость товара: <strong>${money(order.product_price_rub)} RUB</strong></p>
+        <p>Доставка: <strong>${money(order.delivery_cost_rub)} RUB</strong></p>
+        <p>Страховка: <strong>${money(order.insurance_cost_rub)} RUB</strong></p>
+        <p>Комиссия: <strong>${money(order.commission_cost_rub)} RUB</strong></p>
+        <p>Дополнительные расходы: <strong>${money(order.extra_costs_rub)} RUB</strong></p>
+        <p>Наценка: <strong>${money(order.markup_rub)} RUB</strong></p>
+        <p><strong>Итого: ${money(order.total_price_rub)} RUB</strong></p>
       </div>
     `;
   }
@@ -171,11 +172,27 @@ document.addEventListener("DOMContentLoaded", () => {
                     ? "Готовится расчёт"
                     : money(order.total_price_rub) + " RUB"
                 }</p>
-                <p>Статус: ${escapeHtml(order.status)}</p>
+                <p>Статус: <strong>${escapeHtml(statusName(order.status))}</strong></p>
 
                 ${calculationDetails(order)}
 
-                <p style="margin-top:14px;">
+                ${order.status === "calculated" ? `
+                  <button
+                    class="button button-primary confirm-order-button"
+                    data-order-id="${escapeHtml(order.id)}"
+                    type="button">
+                    Подтвердить заказ
+                  </button>
+                  <p class="confirm-order-message" aria-live="polite"></p>
+                ` : ""}
+
+                ${order.status === "confirmed" ? `
+                  <p class="confirmation-success">
+                    Заказ подтверждён. Поставщик получил информацию.
+                  </p>
+                ` : ""}
+
+                <p>
                   <a href="${escapeHtml(order.product_url)}"
                      target="_blank" rel="noopener noreferrer">
                     Открыть товар
@@ -193,6 +210,48 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>`;
     }
   }
+
+  // ПОДТВЕРЖДЕНИЕ ЗАКАЗА ПОКУПАТЕЛЕМ
+  document.addEventListener("click", async event => {
+    const button = event.target.closest(".confirm-order-button");
+    if (!button) return;
+
+    event.preventDefault();
+
+    const orderId = button.dataset.orderId;
+    const card = button.closest(".step-card");
+    const result = card?.querySelector(".confirm-order-message");
+
+    if (!confirm(
+      `Подтвердить заявку №${orderId}?\nПосле подтверждения поставщик сможет приступить к заказу товара.`
+    )) {
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Подтверждение...";
+
+    if (result) {
+      result.textContent = "";
+      result.style.color = "";
+    }
+
+    try {
+      await api(`/orders/${orderId}/confirm`, {
+        method: "POST"
+      });
+
+      await loadCustomerOrders();
+    } catch (error) {
+      if (result) {
+        result.textContent = error.message;
+        result.style.color = "#e05252";
+      }
+
+      button.disabled = false;
+      button.textContent = "Подтвердить заказ";
+    }
+  });
 
   // КАБИНЕТ ПОСТАВЩИКА
   async function loadAdminPanel() {
@@ -214,7 +273,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const orders = ordersData.orders || [];
       const settings = settingsData.settings;
 
-      if (!settings) throw new Error("Настройки тарифов не найдены");
+      if (!settings) {
+        throw new Error("Настройки тарифов не найдены");
+      }
 
       account.innerHTML = `
         <div class="content-card">
@@ -227,24 +288,32 @@ document.addEventListener("DOMContentLoaded", () => {
           <h2>Настройки тарифов</h2>
           <form id="admin-settings-form" class="form">
             <label>Курс юаня (CNY → RUB)</label>
-            <input name="exchange_rate" type="number" min="0.01" step="0.01" required value="${escapeHtml(settings.exchange_rate)}">
+            <input name="exchange_rate" type="number" min="0.01"
+              step="0.01" required value="${escapeHtml(settings.exchange_rate)}">
 
             <label>Доставка за 1 кг (RUB)</label>
-            <input name="delivery_price_per_kg" type="number" min="0" step="0.01" required value="${escapeHtml(settings.delivery_price_per_kg)}">
+            <input name="delivery_price_per_kg" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.delivery_price_per_kg)}">
 
             <label>Страховка (%)</label>
-            <input name="insurance_percent" type="number" min="0" step="0.01" required value="${escapeHtml(settings.insurance_percent)}">
+            <input name="insurance_percent" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.insurance_percent)}">
 
             <label>Комиссия (%)</label>
-            <input name="commission_percent" type="number" min="0" step="0.01" required value="${escapeHtml(settings.commission_percent)}">
+            <input name="commission_percent" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.commission_percent)}">
 
             <label>Дополнительные расходы (RUB)</label>
-            <input name="extra_costs" type="number" min="0" step="0.01" required value="${escapeHtml(settings.extra_costs)}">
+            <input name="extra_costs" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.extra_costs)}">
 
             <label>Наценка (%)</label>
-            <input name="markup_percent" type="number" min="0" step="0.01" required value="${escapeHtml(settings.markup_percent)}">
+            <input name="markup_percent" type="number" min="0"
+              step="0.01" required value="${escapeHtml(settings.markup_percent)}">
 
-            <button class="button button-primary" type="submit">Сохранить тарифы</button>
+            <button class="button button-primary" type="submit">
+              Сохранить тарифы
+            </button>
             <p id="admin-settings-message"></p>
           </form>
         </div>
@@ -252,40 +321,53 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="content-card">
           <h2>Все заявки покупателей</h2>
           <div class="orders-list">
-            ${orders.length ? orders.map(order => `
-              <article class="step-card">
-                <h3>Заявка №${escapeHtml(order.id)}</h3>
-                <p>Покупатель: ${escapeHtml(order.email)}</p>
-                <p>Цена товара: ${escapeHtml(order.product_price_cny)} CNY</p>
-                <p>Вес: ${
-                  order.weight_kg == null ? "Не указан" : escapeHtml(order.weight_kg) + " кг"
-                }</p>
-                <p>Итого: ${
-                  order.total_price_rub == null ? "Не рассчитано" : money(order.total_price_rub) + " RUB"
-                }</p>
-                <p>Статус: ${escapeHtml(order.status)}</p>
+            ${
+              orders.length
+                ? orders.map(order => `
+                  <article class="step-card">
+                    <h3>Заявка №${escapeHtml(order.id)}</h3>
+                    <p>Покупатель: ${escapeHtml(order.email)}</p>
+                    <p>Цена товара: ${escapeHtml(order.product_price_cny)} CNY</p>
+                    <p>Вес: ${
+                      order.weight_kg == null
+                        ? "Не указан"
+                        : escapeHtml(order.weight_kg) + " кг"
+                    }</p>
+                    <p>Итого: ${
+                      order.total_price_rub == null
+                        ? "Не рассчитано"
+                        : money(order.total_price_rub) + " RUB"
+                    }</p>
+                    <p>Статус: <strong>${escapeHtml(statusName(order.status))}</strong></p>
 
-                <p>
-                  <a href="${escapeHtml(order.product_url)}" target="_blank" rel="noopener noreferrer">
-                    Открыть товар
-                  </a>
-                </p>
+                    ${calculationDetails(order)}
 
-                <form class="admin-order-form" data-order-id="${escapeHtml(order.id)}">
-                  <label>Вес товара (кг)</label>
-                  <input name="weight_kg" type="number" min="0.001" step="0.001" required
-                    placeholder="Например, 2.5"
-                    value="${order.weight_kg == null ? "" : escapeHtml(order.weight_kg)}">
+                    <p>
+                      <a href="${escapeHtml(order.product_url)}"
+                         target="_blank" rel="noopener noreferrer">
+                        Открыть товар
+                      </a>
+                    </p>
 
-                  <button class="button button-primary" type="submit">
-                    Рассчитать стоимость
-                  </button>
-                  <p class="admin-order-message"></p>
-                </form>
-              </article>
-            `).join("") : "<p>Пока заявок нет.</p>"}
+                    <form class="admin-order-form" data-order-id="${escapeHtml(order.id)}">
+                      <label>Вес товара (кг)</label>
+                      <input name="weight_kg" type="number"
+                        min="0.001" step="0.001" required
+                        placeholder="Например, 2.5"
+                        value="${order.weight_kg == null ? "" : escapeHtml(order.weight_kg)}">
+
+                      <button class="button button-primary" type="submit">
+                        Рассчитать стоимость
+                      </button>
+                      <p class="admin-order-message"></p>
+                    </form>
+                  </article>
+                `).join("")
+                : "<p>Пока заявок нет.</p>"
+            }
           </div>
-        </div>`;
+        </div>
+      `;
     } catch (error) {
       account.innerHTML = `
         <div class="content-card">
@@ -311,25 +393,28 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // СОХРАНЕНИЕ ТАРИФОВ
+  // НАСТРОЙКИ ТАРИФОВ
   document.addEventListener("submit", async event => {
-    const form = event.target.closest("#admin-settings-form");
-    if (!form) return;
+    const settingsForm = event.target.closest("#admin-settings-form");
+    if (!settingsForm) return;
 
     event.preventDefault();
 
-    const formData = new FormData(form);
+    const formData = new FormData(settingsForm);
     const body = {};
 
     for (const field of [
-      "exchange_rate", "delivery_price_per_kg",
-      "insurance_percent", "commission_percent",
-      "extra_costs", "markup_percent"
+      "exchange_rate",
+      "delivery_price_per_kg",
+      "insurance_percent",
+      "commission_percent",
+      "extra_costs",
+      "markup_percent"
     ]) {
       body[field] = Number(formData.get(field));
     }
 
-    const button = form.querySelector('button[type="submit"]');
+    const button = settingsForm.querySelector('button[type="submit"]');
     button.disabled = true;
 
     try {
@@ -337,6 +422,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "PUT",
         body: JSON.stringify(body)
       });
+
       message("admin-settings-message", "Тарифы успешно сохранены.");
     } catch (error) {
       message("admin-settings-message", error.message, true);
@@ -366,7 +452,9 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ weight_kg: weight })
       });
 
-      result.textContent = `Расчёт сохранён. Итог: ${money(data.calculation.total_price_rub)} RUB`;
+      result.textContent =
+        `Расчёт сохранён. Итог: ${money(data.calculation.total_price_rub)} RUB`;
+
       await loadAdminPanel();
     } catch (error) {
       result.textContent = error.message;
@@ -406,7 +494,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!page) return;
 
     showPage(page);
-    if (page === "account" && token) await loadAccount();
+
+    if (page === "account" && token) {
+      await loadAccount();
+    }
   });
 
   // РЕГИСТРАЦИЯ
@@ -415,6 +506,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (registerForm) {
     registerForm.addEventListener("submit", async event => {
       event.preventDefault();
+
       message("register-message", "Создаём аккаунт...");
 
       try {
@@ -428,6 +520,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         token = data.token;
         currentUser = data.user;
+
         localStorage.setItem("sip_token", token);
         updateAccountButtons();
         showPage("account");
@@ -444,6 +537,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (loginForm) {
     loginForm.addEventListener("submit", async event => {
       event.preventDefault();
+
       message("login-message", "Вход...");
 
       try {
@@ -457,6 +551,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         token = data.token;
         currentUser = data.user;
+
         localStorage.setItem("sip_token", token);
         updateAccountButtons();
         showPage("account");
@@ -467,12 +562,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // СОЗДАНИЕ ЗАЯВКИ
+  // СОЗДАНИЕ ЗАЯВКИ ПОКУПАТЕЛЕМ
   const requestForm = document.getElementById("request-form");
 
   if (requestForm) {
     requestForm.addEventListener("submit", async event => {
       event.preventDefault();
+
       message("request-message", "Отправляем заявку...");
 
       if (!token) {
@@ -486,7 +582,9 @@ document.addEventListener("DOMContentLoaded", () => {
           method: "POST",
           body: JSON.stringify({
             product_url: document.getElementById("product-url").value.trim(),
-            product_price_cny: Number(document.getElementById("product-price").value)
+            product_price_cny: Number(
+              document.getElementById("product-price").value
+            )
           })
         });
 
@@ -498,7 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ПРОВЕРКА СЕССИИ
+  // ПРОВЕРКА СЕССИИ И РОЛИ
   async function checkSession() {
     if (!token) {
       updateAccountButtons();
