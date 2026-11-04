@@ -1,4 +1,3 @@
-
 const json = (data, status = 200) =>
   Response.json(data, {
     status,
@@ -137,7 +136,6 @@ export default {
     const method = request.method;
 
     try {
-      // ПРОВЕРКА СЕРВЕРА И БАЗЫ
       if (path === "/api/health" && method === "GET") {
         const result = await env.DB
           .prepare("SELECT 1 AS connected")
@@ -149,7 +147,6 @@ export default {
         });
       }
 
-      // РЕГИСТРАЦИЯ
       if (path === "/api/register" && method === "POST") {
         const body = await request.json();
         const email = String(body.email || "").trim().toLowerCase();
@@ -192,7 +189,6 @@ export default {
         return json({ user, token }, 201);
       }
 
-      // ВХОД
       if (path === "/api/login" && method === "POST") {
         const body = await request.json();
         const email = String(body.email || "").trim().toLowerCase();
@@ -222,7 +218,6 @@ export default {
         });
       }
 
-      // ТЕКУЩИЙ ПОЛЬЗОВАТЕЛЬ
       if (path === "/api/me" && method === "GET") {
         const user = await getUser(request, env);
 
@@ -231,7 +226,7 @@ export default {
         return json({ user });
       }
 
-      // СОЗДАНИЕ ЗАЯВКИ ПОКУПАТЕЛЕМ
+      // СОЗДАНИЕ ЗАЯВКИ
       if (path === "/api/orders" && method === "POST") {
         const user = await getUser(request, env);
 
@@ -269,15 +264,13 @@ export default {
         }, 201);
       }
 
-      // ПОДТВЕРЖДЕНИЕ ЗАЯВКИ ПОКУПАТЕЛЕМ
+      // ПОДТВЕРЖДЕНИЕ ЗАКАЗА ПОКУПАТЕЛЕМ
       const confirmMatch = path.match(/^\/api\/orders\/(\d+)\/confirm$/);
 
       if (confirmMatch && method === "POST") {
         const user = await getUser(request, env);
 
-        if (!user) {
-          return json({ error: "Требуется вход" }, 401);
-        }
+        if (!user) return json({ error: "Требуется вход" }, 401);
 
         const orderId = Number(confirmMatch[1]);
 
@@ -287,9 +280,7 @@ export default {
           WHERE id = ? AND user_id = ?
         `).bind(orderId, user.id).first();
 
-        if (!order) {
-          return json({ error: "Заявка не найдена" }, 404);
-        }
+        if (!order) return json({ error: "Заявка не найдена" }, 404);
 
         if (order.status !== "calculated") {
           return json({
@@ -326,19 +317,10 @@ export default {
 
         const orders = await env.DB.prepare(`
           SELECT
-            id,
-            product_url,
-            product_price_cny,
-            weight_kg,
-            total_price_rub,
-            product_price_rub,
-            delivery_cost_rub,
-            insurance_cost_rub,
-            commission_cost_rub,
-            extra_costs_rub,
-            markup_rub,
-            status,
-            created_at
+            id, product_url, product_price_cny, weight_kg,
+            total_price_rub, product_price_rub, delivery_cost_rub,
+            insurance_cost_rub, commission_cost_rub, extra_costs_rub,
+            markup_rub, status, created_at
           FROM orders
           WHERE user_id = ?
           ORDER BY id DESC
@@ -347,34 +329,84 @@ export default {
         return json({ orders: orders.results });
       }
 
-      // ВСЕ ЗАЯВКИ ДЛЯ АДМИНИСТРАТОРА
+      // ВСЕ ЗАЯВКИ ПОСТАВЩИКА
       if (path === "/api/admin/orders" && method === "GET") {
         const auth = await requireAdmin(request, env);
         if (auth.error) return auth.error;
 
         const orders = await env.DB.prepare(`
           SELECT
-            orders.id,
-            orders.user_id,
-            users.email,
-            orders.product_url,
-            orders.product_price_cny,
-            orders.weight_kg,
-            orders.total_price_rub,
-            orders.product_price_rub,
-            orders.delivery_cost_rub,
-            orders.insurance_cost_rub,
-            orders.commission_cost_rub,
-            orders.extra_costs_rub,
-            orders.markup_rub,
-            orders.status,
-            orders.created_at
+            orders.id, orders.user_id, users.email,
+            orders.product_url, orders.product_price_cny,
+            orders.weight_kg, orders.total_price_rub,
+            orders.product_price_rub, orders.delivery_cost_rub,
+            orders.insurance_cost_rub, orders.commission_cost_rub,
+            orders.extra_costs_rub, orders.markup_rub,
+            orders.status, orders.created_at
           FROM orders
           JOIN users ON users.id = orders.user_id
           ORDER BY orders.id DESC
         `).all();
 
         return json({ orders: orders.results });
+      }
+
+      // НОВОЕ: ИЗМЕНЕНИЕ СТАТУСА ПОСТАВЩИКОМ
+      const statusMatch = path.match(
+        /^\/api\/admin\/orders\/(\d+)\/status$/
+      );
+
+      if (statusMatch && method === "PATCH") {
+        const auth = await requireAdmin(request, env);
+        if (auth.error) return auth.error;
+
+        const orderId = Number(statusMatch[1]);
+        const body = await request.json();
+        const newStatus = String(body.status || "");
+
+        const transitions = {
+          confirmed: "purchased",
+          purchased: "in_transit",
+          in_transit: "arrived",
+          arrived: "shipped",
+          shipped: "delivered"
+        };
+
+        const order = await env.DB.prepare(`
+          SELECT id, status
+          FROM orders
+          WHERE id = ?
+        `).bind(orderId).first();
+
+        if (!order) {
+          return json({ error: "Заявка не найдена" }, 404);
+        }
+
+        const expectedNext = transitions[order.status];
+
+        if (!expectedNext || newStatus !== expectedNext) {
+          return json({
+            error: "Недопустимый переход статуса. Обновите страницу."
+          }, 400);
+        }
+
+        const result = await env.DB.prepare(`
+          UPDATE orders
+          SET status = ?
+          WHERE id = ? AND status = ?
+        `).bind(newStatus, orderId, order.status).run();
+
+        if (!result.meta.changes) {
+          return json({
+            error: "Статус уже изменён. Обновите список заявок."
+          }, 409);
+        }
+
+        return json({
+          message: "Статус заказа обновлён",
+          order_id: orderId,
+          status: newStatus
+        });
       }
 
       // ПОЛУЧЕНИЕ ТАРИФОВ
@@ -405,12 +437,9 @@ export default {
         const body = await request.json();
 
         const fields = [
-          "exchange_rate",
-          "delivery_price_per_kg",
-          "insurance_percent",
-          "commission_percent",
-          "extra_costs",
-          "markup_percent"
+          "exchange_rate", "delivery_price_per_kg",
+          "insurance_percent", "commission_percent",
+          "extra_costs", "markup_percent"
         ];
 
         const values = fields.map(field => Number(body[field]));
@@ -458,9 +487,7 @@ export default {
           WHERE id = ?
         `).bind(orderId).first();
 
-        if (!order) {
-          return json({ error: "Заявка не найдена" }, 404);
-        }
+        if (!order) return json({ error: "Заявка не найдена" }, 404);
 
         const settings = await env.DB.prepare(`
           SELECT exchange_rate, delivery_price_per_kg,
@@ -476,23 +503,16 @@ export default {
 
         const productRub = Number(order.product_price_cny) *
           Number(settings.exchange_rate);
-
         const deliveryRub = weight *
           Number(settings.delivery_price_per_kg);
-
         const insuranceRub = productRub *
           Number(settings.insurance_percent) / 100;
-
         const commissionRub = productRub *
           Number(settings.commission_percent) / 100;
-
         const extraCostsRub = Number(settings.extra_costs);
 
-        const subtotal = productRub +
-          deliveryRub +
-          insuranceRub +
-          commissionRub +
-          extraCostsRub;
+        const subtotal = productRub + deliveryRub +
+          insuranceRub + commissionRub + extraCostsRub;
 
         const markupRub = subtotal *
           Number(settings.markup_percent) / 100;
