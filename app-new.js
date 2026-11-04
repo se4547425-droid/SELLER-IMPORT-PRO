@@ -684,6 +684,70 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ФИЛЬТРАЦИЯ И СОРТИРОВКА ЗАЯВОК
+  function filterAdminOrders() {
+    const search = document
+      .getElementById("orders-search")?.value
+      .trim()
+      .toLowerCase() || "";
+
+    const status = document.getElementById("orders-status")?.value || "all";
+    const sort = document.getElementById("orders-sort")?.value || "newest";
+
+    const list = document.querySelector("#admin-orders-list");
+    if (!list) return;
+
+    const cards = Array.from(list.querySelectorAll(".admin-order-card"));
+
+    cards.forEach(card => {
+      const matchesSearch = (card.dataset.search || "").includes(search);
+      const matchesStatus = status === "all" || card.dataset.status === status;
+
+      card.hidden = !(matchesSearch && matchesStatus);
+    });
+
+    const sorted = cards.sort((a, b) => {
+      if (sort === "oldest") {
+        return Number(a.dataset.id) - Number(b.dataset.id);
+      }
+
+      if (sort === "price-high") {
+        return Number(b.dataset.total) - Number(a.dataset.total);
+      }
+
+      if (sort === "price-low") {
+        return Number(a.dataset.total) - Number(b.dataset.total);
+      }
+
+      return Number(b.dataset.id) - Number(a.dataset.id);
+    });
+
+    sorted.forEach(card => list.appendChild(card));
+
+    const visible = cards.filter(card => !card.hidden).length;
+    const counter = document.getElementById("orders-filter-count");
+
+    if (counter) {
+      counter.textContent = `Показано: ${visible} из ${cards.length}`;
+    }
+  }
+
+  document.addEventListener("input", event => {
+    if (event.target.id === "orders-search") {
+      filterAdminOrders();
+    }
+  });
+
+  document.addEventListener("change", event => {
+    if (
+      event.target.id === "orders-status" ||
+      event.target.id === "orders-sort"
+    ) {
+      filterAdminOrders();
+    }
+  });
+
+  
   // КАБИНЕТ ПОСТАВЩИКА
 
   async function loadAdminPanel() {
