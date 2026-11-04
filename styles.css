@@ -70,5 +70,154 @@
 @media(max-width:680px) {
   .order-history-block {
     padding: 16px 13px;
+
+    /* =================================
+   SELLER IMPORT PRO — ORDERS PANEL
+================================= */
+
+/* Панель фильтрации */
+.orders-filter-panel {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.6fr) minmax(150px, 1fr) minmax(150px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin: 16px 0 20px;
+  padding: 13px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+
+.orders-filter-panel input,
+.orders-filter-panel select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #0b1425;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.orders-filter-panel input:focus,
+.orders-filter-panel select:focus {
+  border-color: var(--purple);
+  outline: none;
+  box-shadow: 0 0 0 3px #8b7cff20;
+}
+
+#orders-filter-count {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Карточки заявок */
+.admin-order-card {
+  margin: 0 0 13px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  transition: border-color .2s, transform .2s;
+}
+
+.admin-order-card:hover {
+  border-color: #53638a;
+  transform: translateY(-1px);
+}
+
+.admin-order-card[hidden] {
+  display: none !important;
+}
+
+/* Заголовки внутри заявок */
+.admin-order-card h3,
+.admin-order-card h4 {
+  font-family: Manrope, sans-serif;
+  color: var(--text);
+}
+
+.admin-order-card h3 {
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+
+/* Информация о заявке */
+.admin-order-card p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 5px 0;
+}
+
+.admin-order-card strong {
+  color: #e8edfa;
+}
+
+/* Ссылки на товары */
+.admin-order-card a {
+  color: var(--cyan);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.admin-order-card a:hover {
+  text-decoration: underline;
+}
+
+/* Поля ввода в карточках */
+.admin-order-card input,
+.admin-order-card select,
+.admin-order-card textarea {
+  font-size: 12px;
+}
+
+/* Кнопки карточек */
+.admin-order-card .button {
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+/* Адаптация */
+@media(max-width: 900px) {
+  .orders-filter-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .orders-filter-panel input {
+    grid-column: 1 / -1;
+  }
+
+  #orders-filter-count {
+    grid-column: 1 / -1;
+  }
+}
+
+@media(max-width: 680px) {
+  .orders-filter-panel {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .orders-filter-panel input,
+  #orders-filter-count {
+    grid-column: auto;
+  }
+
+  .admin-order-card {
+    padding: 15px;
+  }
+
+  .admin-order-card .button {
+    width: 100%;
+    margin-top: 7px;
+  }
+}
   }
 }
