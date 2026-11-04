@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", () => {
   const API = "/api";
   let token = localStorage.getItem("sip_token") || "";
@@ -116,41 +115,44 @@ document.addEventListener("DOMContentLoaded", () => {
       return `<p class="history-empty">История изменений пока пуста.</p>`;
     }
 
-    return `
-      <div class="status-history-list">
-        ${history.map(item => {
-          const date = item.created_at
-            ? new Date(
-                item.created_at.includes("Z") || item.created_at.includes("+")
-                  ? item.created_at
-                  : item.created_at.replace(" ", "T") + "Z"
-              )
-            : null;
+    return history.map(item => {
+      const date = item.created_at
+        ? new Date(
+            item.created_at.includes("Z") || item.created_at.includes("+")
+              ? item.created_at
+              : item.created_at.replace(" ", "T") + "Z"
+          )
+        : null;
 
-          const dateText = date && !Number.isNaN(date.getTime())
-            ? date.toLocaleString("ru-RU")
-            : item.created_at || "Дата не указана";
+      const dateText = date && !Number.isNaN(date.getTime())
+        ? date.toLocaleString("ru-RU")
+        : item.created_at || "Дата не указана";
 
-          return `
-            <div class="status-history-item">
-              <p>
-                <strong>${escapeHtml(statusName(item.new_status))}</strong>
-              </p>
-              <p>
-                Предыдущий статус:
-                ${escapeHtml(
-                  item.old_status
-                    ? statusName(item.old_status)
-                    : "Создание заявки"
-                )}
-              </p>
-              <p>Дата: ${escapeHtml(dateText)}</p>
-              <p>Изменил: ${escapeHtml(item.changed_by || "Не указано")}</p>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `;
+      return `
+        <div class="history-item">
+          <strong>${escapeHtml(statusName(item.new_status))}</strong>
+
+          <p>
+            Предыдущий статус:
+            <span>${escapeHtml(
+              item.old_status
+                ? statusName(item.old_status)
+                : "Создание заявки"
+            )}</span>
+          </p>
+
+          <p>
+            Дата:
+            <span>${escapeHtml(dateText)}</span>
+          </p>
+
+          <p>
+            Изменил:
+            <span>${escapeHtml(item.changed_by || "Не указано")}</span>
+          </p>
+        </div>
+      `;
+    }).join("");
   }
 
   // ЗАГРУЗКА ИСТОРИИ ДЛЯ КАРТОЧЕК
